@@ -1,0 +1,23 @@
+{
+  "_settings_menu_reviews": "Bewertungen",
+  "_reviews_tab_reviews": "Bewertungen",
+  "_reviews_new": "Neue Bewertung",
+  "_reviews_edit": "Bewertung bearbeiten",
+  "_reviews_save": "Bewertung speichern",
+  "_reviews_delete": "Bewertung löschen",
+  "_reviews_empty": "Noch keine Bewertungen vorhanden.",
+  "_reviews_author": "Name",
+  "_reviews_source": "Firma oder Ort",
+  "_reviews_rating": "Bewertung",
+  "_reviews_text": "Text",
+  "_reviews_lid": "Sprache",
+  "_reviews_date": "Datum",
+  "_reviews_published": "Veröffentlicht",
+  "_reviews_featured": "Hervorgehoben",
+  "_reviews_draft": "Entwurf",
+  "_reviews_language_all": "Alle Sprachen",
+  "_reviews_rating_option": "%rating% Sterne",
+  "_reviews_rating_label": "%rating% von 5 Sternen",
+  "_reviews_widget_limit": "Anzahl",
+  "_reviews_widget_min_rating": "Mindestbewertung"
+}

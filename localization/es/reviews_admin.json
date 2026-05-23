@@ -1,0 +1,23 @@
+{
+  "_settings_menu_reviews": "Reseñas",
+  "_reviews_tab_reviews": "Reseñas",
+  "_reviews_new": "Nueva reseña",
+  "_reviews_edit": "Editar reseña",
+  "_reviews_save": "Guardar reseña",
+  "_reviews_delete": "Eliminar reseña",
+  "_reviews_empty": "Todavía no hay reseñas.",
+  "_reviews_author": "Nombre",
+  "_reviews_source": "Empresa o lugar",
+  "_reviews_rating": "Valoración",
+  "_reviews_text": "Texto",
+  "_reviews_lid": "Idioma",
+  "_reviews_date": "Fecha",
+  "_reviews_published": "Publicado",
+  "_reviews_featured": "Destacado",
+  "_reviews_draft": "Borrador",
+  "_reviews_language_all": "Todos los idiomas",
+  "_reviews_rating_option": "%rating% estrellas",
+  "_reviews_rating_label": "%rating% de 5 estrellas",
+  "_reviews_widget_limit": "Cantidad",
+  "_reviews_widget_min_rating": "Valoración mínima"
+}

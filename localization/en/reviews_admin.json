@@ -1,0 +1,23 @@
+{
+  "_settings_menu_reviews": "Reviews",
+  "_reviews_tab_reviews": "Reviews",
+  "_reviews_new": "New review",
+  "_reviews_edit": "Edit review",
+  "_reviews_save": "Save review",
+  "_reviews_delete": "Delete review",
+  "_reviews_empty": "No reviews yet.",
+  "_reviews_author": "Name",
+  "_reviews_source": "Company or place",
+  "_reviews_rating": "Rating",
+  "_reviews_text": "Text",
+  "_reviews_lid": "Language",
+  "_reviews_date": "Date",
+  "_reviews_published": "Published",
+  "_reviews_featured": "Featured",
+  "_reviews_draft": "Draft",
+  "_reviews_language_all": "All languages",
+  "_reviews_rating_option": "%rating% stars",
+  "_reviews_rating_label": "%rating% out of 5 stars",
+  "_reviews_widget_limit": "Amount",
+  "_reviews_widget_min_rating": "Minimum rating"
+}
