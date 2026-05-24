@@ -12,6 +12,7 @@ class FiCMSReviews {
 	public function __construct($basePath = '', $defaultLanguage = '', $installedLanguages = []) {
 		$this->basePath = rtrim((string) $basePath,'/');
 		if ($this->basePath == '') $this->basePath = dirname(__DIR__);
+		if (defined('PLUGINPATH') && is_dir(PLUGINPATH.'/'.basename($this->basePath))) $this->basePath = PLUGINPATH.'/'.basename($this->basePath);
 		$this->dataFile = $this->basePath.'/data/reviews.json';
 		$this->integrationsFile = $this->basePath.'/data/integrations.json';
 		$this->defaultLanguage = trim((string) $defaultLanguage) !== '' ? trim((string) $defaultLanguage) : (string) ($GLOBALS['site']['default_language'] ?? ($_SESSION['language'] ?? 'de'));
