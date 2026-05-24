@@ -15,6 +15,7 @@
   "_reviews_published": "Published",
   "_reviews_featured": "Featured",
   "_reviews_draft": "Draft",
+  "_reviews_no_author": "Without name",
   "_reviews_language_all": "All languages",
   "_reviews_rating_option": "%rating% stars",
   "_reviews_rating_label": "%rating% out of 5 stars",

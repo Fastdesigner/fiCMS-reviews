@@ -36,7 +36,13 @@ foreach ($reviews['data']['reviews'] as $reviews['entry']) {
 	if (count($reviews['items']) >= $reviews['limit']) break;
 	if (empty($reviews['entry']['published'])) continue;
 	if (intval($reviews['entry']['rating'] ?? 0) < $reviews['min_rating']) continue;
-	if (!in_array(($reviews['entry']['lid'] ?? 'all'),['all',$_SESSION['language']],true)) continue;
+	$reviews['entry']['lid'] = helper__json_convert($reviews['entry']['lid'] ?? ['all']);
+	if (!in_array('all',$reviews['entry']['lid'],true) && !in_array($_SESSION['language'],$reviews['entry']['lid'],true)) continue;
+	foreach (['author','source','text'] as $reviews['field']) {
+		if (!is_array($reviews['entry'][$reviews['field']] ?? [])) $reviews['entry'][$reviews['field']] = [$_SESSION['language']=>$reviews['entry'][$reviews['field']]];
+		$reviews['entry'][$reviews['field']] = trim((string) language__from_array($reviews['entry'][$reviews['field']],$_SESSION['language']));
+	}
+	if ($reviews['entry']['text'] == '') continue;
 	$reviews['rating'] = max(1,min(5,intval($reviews['entry']['rating'] ?? 0)));
 	$reviews['items'][] = '<article class="reviews__item" data-rating="'.$reviews['rating'].'">'.
 		'<div class="reviews__rating" aria-label="'.htmlspecialchars(language__get_parsed($_SESSION['language'],'_reviews_rating_label',['rating'=>$reviews['rating']]),ENT_QUOTES,'UTF-8').'">'.str_repeat('★',$reviews['rating']).'</div>'.

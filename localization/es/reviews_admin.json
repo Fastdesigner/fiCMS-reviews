@@ -15,6 +15,7 @@
   "_reviews_published": "Publicado",
   "_reviews_featured": "Destacado",
   "_reviews_draft": "Borrador",
+  "_reviews_no_author": "Sin nombre",
   "_reviews_language_all": "Todos los idiomas",
   "_reviews_rating_option": "%rating% estrellas",
   "_reviews_rating_label": "%rating% de 5 estrellas",
