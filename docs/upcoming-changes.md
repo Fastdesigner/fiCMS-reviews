@@ -94,7 +94,8 @@ Do not add external source assumptions to V1 storage or rendering.
 
 - Admin has an `Integrationen` tab next to the shared review overview.
 - Integrations are shown as provider list entries, following the `fiCMS-booking` model. Do not add one tab per provider.
-- `Neue Integration` creates a provider entry; provider-specific connection actions live on that integration entry.
+- `Neue Integration` opens the provider form; `Verbinden` saves the entry through AJAX and starts OAuth in a separate window through `redirect_target`.
+- Existing provider-specific connection actions live on that integration entry.
 - Provider logos are resolved from `assets/img/providers/<provider>.svg|png|webp`.
 - The main view does not expose raw Google account/location fields.
 - OAuth starts through the existing `/oauth.php?action=authorize&provider=google&account=<account-ref>` flow, which delegates to `\oauth\OAuth::authorize(...)`.

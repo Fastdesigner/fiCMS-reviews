@@ -69,6 +69,12 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		$_POST['handled'] = true;
 	}
 
+	if (!isset($_POST['handled']) && $reviews['action'] == 'save_connect_integration') {
+		$reviews['saved'] = $reviews['instance']->saveIntegrationFromPost($reviews['integration_id'],$_POST);
+		$reviews['output']['result'] = !empty($reviews['saved']['result']) ? $reviews['instance']->connectIntegration($reviews['saved']['id']) : $reviews['saved'];
+		$_POST['handled'] = true;
+	}
+
 	if (!isset($_POST['handled']) && $reviews['action'] == 'connect_integration') {
 		$reviews['output']['result'] = $reviews['instance']->connectIntegration($reviews['integration_id']);
 		$_POST['handled'] = true;
@@ -84,7 +90,7 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		$reviews['status'] = $reviews['integration_id'] == 'new' ? $reviews['integration'] : $reviews['instance']->integrationStatus($reviews['integration_id']);
 		$reviews['formitems'] = create__form_items([
 			'active'=>['type'=>'checkbox'],
-			'label'=>['required'=>true],
+			'label'=>[],
 			'provider'=>['required'=>true,'type'=>'select','options'=>$reviews['integration_provider_options']],
 			'account_ref'=>['type'=>'hidden']
 		],[
@@ -117,8 +123,11 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 			}
 		}
 		$reviews['connect_label'] = $reviews['integration_id'] != 'new' && $reviews['integration']['provider'] == 'google' ? language__get($user['language'],'_reviews_integration_connect') : false;
-		$reviews['connect_action'] = $reviews['connect_label'] ? ['load'=>['action'=>'connect_integration','id'=>$reviews['integration']['id']]] : [];
-		$reviews['output']['lists'] = create__form($settings['form'],$reviews['integration_form'],$reviews['integration_id'] == 'new' ? language__get($user['language'],'_reviews_integration_new') : language__get_parsed($user['language'],'_reviews_integration_edit',['label'=>$reviews['integration']['label']]),language__get($user['language'],'_settings_form_save'),['load'=>['action'=>'save_integration','id'=>$reviews['integration_id']]],[],$reviews['connect_label'],$reviews['connect_action']);
+		$reviews['connect_action'] = $reviews['connect_label'] ? ['load'=>['action'=>'save_connect_integration','id'=>$reviews['integration']['id'],'target'=>'_blank']] : [];
+		$reviews['submit_label'] = $reviews['integration_id'] == 'new' ? language__get($user['language'],'_reviews_integration_connect') : language__get($user['language'],'_settings_form_save');
+		$reviews['submit_action'] = ['load'=>['action'=>$reviews['integration_id'] == 'new' ? 'save_connect_integration' : 'save_integration','id'=>$reviews['integration_id']]];
+		if ($reviews['integration_id'] == 'new') $reviews['submit_action']['load']['target'] = '_blank';
+		$reviews['output']['lists'] = create__form($settings['form'],$reviews['integration_form'],$reviews['integration_id'] == 'new' ? language__get($user['language'],'_reviews_integration_new') : language__get_parsed($user['language'],'_reviews_integration_edit',['label'=>$reviews['integration']['label']]),$reviews['submit_label'],$reviews['submit_action'],[],$reviews['connect_label'],$reviews['connect_action']);
 		$reviews['output']['result'] = ['result'=>true];
 		$_POST['handled'] = true;
 	}
@@ -221,7 +230,7 @@ foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 	if (trim((string) ($reviews['status']['target']['location_title'] ?? '')) != '') $reviews['subtitle'] .= ' · '.$reviews['status']['target']['location_title'];
 	$reviews['details'] = [
 		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-edit','description'=>language__get($user['language'],'_reviews_integration_edit_link'),'actions'=>['load'=>['id'=>'integration-'.$reviews['integration']['id'],'form'=>true]]],
-		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-connect','description'=>language__get($user['language'],'_reviews_integration_connect'),'actions'=>['load'=>['action'=>'connect_integration','id'=>$reviews['integration']['id']]]],
+		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-connect','description'=>language__get($user['language'],'_reviews_integration_connect'),'actions'=>['load'=>['action'=>'connect_integration','id'=>$reviews['integration']['id'],'target'=>'_blank']]],
 		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-sync','description'=>language__get($user['language'],'_reviews_integration_sync'),'actions'=>['load'=>['action'=>'sync_integration','id'=>$reviews['integration']['id']]]],
 		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-result','description'=>language__get($user['language'],'_reviews_integration_last_result'),'subtitle'=>language__get_parsed($user['language'],'_reviews_integration_sync_result',['count'=>$reviews['status']['last_count'],'imported'=>$reviews['status']['last_imported'],'updated'=>$reviews['status']['last_updated']])],
 		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-delete','tag'=>'li','items'=>[

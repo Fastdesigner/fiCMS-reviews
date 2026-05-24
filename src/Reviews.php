@@ -162,7 +162,7 @@ class FiCMSReviews {
 	public function connectIntegration($id) {
 		$integration = $this->integration($id);
 		if ($integration['provider'] != 'google') return ['result'=>false];
-		return ['result'=>true,'redirect'=>PAGEPATH.'/oauth.php?action=authorize&provider=google&account='.rawurlencode($integration['account_ref'])];
+		return ['result'=>true,'redirect'=>PAGEPATH.'/oauth.php?action=authorize&provider=google&account='.rawurlencode($integration['account_ref']),'redirect_target'=>'_blank'];
 	}
 
 	public function integrationStatus($id) {
