@@ -2,16 +2,27 @@
 
 if (!$site['onsite']) return;
 
+require_once dirname(__DIR__,2).'/src/Reviews.php';
+
 $reviews = [
-	'data_file'=>dirname(__DIR__,2).'/data/reviews.json',
-	'data'=>['reviews'=>[]],
 	'structure_file'=>'',
 	'structure'=>[],
+	'block'=>isset($service['temp']['data']['block']) && is_array($service['temp']['data']['block']) ? $service['temp']['data']['block'] : [],
 	'limit'=>6,
+	'layout'=>'list',
+	'selected'=>'list',
 	'min_rating'=>1,
+	'rows'=>[],
+	'summary'=>[],
 	'replace'=>[
 		'count'=>0,
-		'list'=>''
+		'layout'=>'list',
+		'list'=>'',
+		'slider'=>'',
+		'summary'=>'',
+		'render_list'=>0,
+		'render_slider'=>0,
+		'render_summary'=>0
 	],
 	'options'=>[
 		'show_rating'=>1,
@@ -19,7 +30,8 @@ $reviews = [
 		'show_date'=>1
 	],
 	'items'=>[],
-	'content'=>''
+	'content'=>'',
+	'instance'=>new FiCMSReviews(dirname(__DIR__,2),$site['default_language'],$site['installed_languages'])
 ];
 
 $reviews['structure_file'] = widgets__layout_file('review');
@@ -31,40 +43,27 @@ if ($reviews['structure_file'] == '') {
 }
 
 if (isset($service['temp']['data']['add']) && intval($service['temp']['data']['add']) > 0) $reviews['limit'] = intval($service['temp']['data']['add']);
-if (isset($service['temp']['data']['block']['option_widgetnum']) && intval($service['temp']['data']['block']['option_widgetnum']) > 0) $reviews['limit'] = intval($service['temp']['data']['block']['option_widgetnum']);
-if (isset($service['temp']['data']['block']['option_widgetvalue']) && intval($service['temp']['data']['block']['option_widgetvalue']) > 0) $reviews['min_rating'] = max(1,min(5,intval($service['temp']['data']['block']['option_widgetvalue'])));
-foreach ($reviews['options'] as $reviews['option'] => $reviews['default']) $reviews['options'][$reviews['option']] = intval($service['temp']['data']['block']['option_'.$reviews['option']] ?? $reviews['default']) == 1 ? 1 : 0;
+if (isset($reviews['block']['option_widgetnum']) && intval($reviews['block']['option_widgetnum']) > 0) $reviews['limit'] = intval($reviews['block']['option_widgetnum']);
+if (isset($reviews['block']['option_widgetvalue']) && intval($reviews['block']['option_widgetvalue']) > 0) $reviews['min_rating'] = max(1,min(5,intval($reviews['block']['option_widgetvalue'])));
+foreach ($reviews['options'] as $reviews['option'] => $reviews['default']) $reviews['options'][$reviews['option']] = intval($reviews['block']['option_'.$reviews['option']] ?? $reviews['default']) == 1 ? 1 : 0;
 if ($reviews['limit'] <= 0) $reviews['limit'] = 6;
 
-if (is_file($reviews['data_file'])) {
-	$reviews['loaded'] = helper__json_convert(file_get_contents($reviews['data_file']));
-	if (is_array($reviews['loaded'])) $reviews['data'] = array_merge($reviews['data'],$reviews['loaded']);
-}
-if (!isset($reviews['data']['reviews']) || !is_array($reviews['data']['reviews'])) $reviews['data']['reviews'] = [];
+$reviews['layout'] = trim((string) ($reviews['block']['option_reviews_layout'] ?? 'list'));
+if (!in_array($reviews['layout'],['list','slider','summary'],true)) $reviews['layout'] = 'list';
 $reviews['structure'] = parser__file($reviews['structure_file']);
-if (!isset($reviews['structure']['list'])) $reviews['structure']['list'] = '';
+foreach (['list','slider','summary'] as $reviews['section']) if (!isset($reviews['structure'][$reviews['section']])) $reviews['structure'][$reviews['section']] = '';
+$reviews['selected'] = ($reviews['layout'] != 'list' && $reviews['structure'][$reviews['layout']] == '') ? 'list' : $reviews['layout'];
 
-uasort($reviews['data']['reviews'],function($a,$b) {
-	$af = intval($a['featured'] ?? 0);
-	$bf = intval($b['featured'] ?? 0);
-	if ($af != $bf) return ($af < $bf) ? 1 : -1;
-	$ad = intval($a['date'] ?? 0);
-	$bd = intval($b['date'] ?? 0);
-	if ($ad == $bd) return 0;
-	return ($ad < $bd) ? 1 : -1;
-});
+$reviews['rows'] = $reviews['instance']->widget([
+	'limit'=>$reviews['limit'],
+	'min_rating'=>$reviews['min_rating'],
+	'featured'=>intval($reviews['block']['option_reviews_featured'] ?? 0),
+	'language'=>$reviews['block']['option_reviews_language'] ?? ['all'],
+	'sort'=>trim((string) ($reviews['block']['option_reviews_sort'] ?? 'featured')),
+	'direction'=>trim((string) ($reviews['block']['option_reviews_sort_dir'] ?? 'DESC'))
+],$_SESSION['language']);
 
-foreach ($reviews['data']['reviews'] as $reviews['entry']) {
-	if (count($reviews['items']) >= $reviews['limit']) break;
-	if (empty($reviews['entry']['published'])) continue;
-	if (intval($reviews['entry']['rating'] ?? 0) < $reviews['min_rating']) continue;
-	$reviews['entry']['lid'] = helper__json_convert($reviews['entry']['lid'] ?? ['all']);
-	if (!in_array('all',$reviews['entry']['lid'],true) && !in_array($_SESSION['language'],$reviews['entry']['lid'],true)) continue;
-	foreach (['author','source','text'] as $reviews['field']) {
-		if (!is_array($reviews['entry'][$reviews['field']] ?? [])) $reviews['entry'][$reviews['field']] = [$_SESSION['language']=>$reviews['entry'][$reviews['field']]];
-		$reviews['entry'][$reviews['field']] = trim((string) language__from_array($reviews['entry'][$reviews['field']],$_SESSION['language']));
-	}
-	if ($reviews['entry']['text'] == '') continue;
+foreach ($reviews['rows'] as $reviews['entry']) {
 	$reviews['rating'] = max(1,min(5,intval($reviews['entry']['rating'] ?? 0)));
 	$reviews['item'] = [
 		'id'=>htmlspecialchars(trim((string) ($reviews['entry']['id'] ?? '')),ENT_QUOTES,'UTF-8'),
@@ -84,16 +83,33 @@ foreach ($reviews['data']['reviews'] as $reviews['entry']) {
 		'render_source'=>($reviews['options']['show_source'] == 1 && trim((string) ($reviews['entry']['source'] ?? '')) !== '') ? 1 : 0,
 		'render_date'=>$reviews['options']['show_date']
 	];
-	if ($reviews['structure']['list'] !== '') {
-		$reviews['line'] = $reviews['structure']['list'];
+	if ($reviews['selected'] != 'summary' && $reviews['structure'][$reviews['selected']] !== '') {
+		$reviews['line'] = $reviews['structure'][$reviews['selected']];
 		$reviews['items'][] = parser__replace($reviews['line'],$reviews['item']);
 	}
 }
 
-if (count($reviews['items']) > 0) {
-	$reviews['replace']['count'] = count($reviews['items']);
-	$reviews['replace']['list'] = implode($reviews['items']);
-	$reviews['content'] = parser__replace($reviews['structure']['frame'],$reviews['replace']);
+if (count($reviews['rows']) > 0) {
+	$reviews['summary'] = $reviews['instance']->summary($reviews['rows'],$_SESSION['language']);
+	$reviews['replace'] = array_merge($reviews['replace'],[
+		'count'=>count($reviews['rows']),
+		'layout'=>$reviews['selected'],
+		'average'=>htmlspecialchars($reviews['summary']['rating_average_label'],ENT_QUOTES,'UTF-8'),
+		'average_label'=>htmlspecialchars($reviews['summary']['rating_label'],ENT_QUOTES,'UTF-8'),
+		'summary_rating_stars'=>htmlspecialchars($reviews['summary']['rating_stars'],ENT_QUOTES,'UTF-8'),
+		'rating_1_count'=>$reviews['summary']['rating_1_count'],
+		'rating_2_count'=>$reviews['summary']['rating_2_count'],
+		'rating_3_count'=>$reviews['summary']['rating_3_count'],
+		'rating_4_count'=>$reviews['summary']['rating_4_count'],
+		'rating_5_count'=>$reviews['summary']['rating_5_count'],
+		'render_'.$reviews['selected']=>1
+	]);
+	if ($reviews['selected'] == 'summary' && $reviews['structure']['summary'] !== '') {
+		$reviews['line'] = $reviews['structure']['summary'];
+		$reviews['replace']['summary'] = parser__replace($reviews['line'],$reviews['replace']);
+	} else $reviews['replace'][$reviews['selected']] = implode('',$reviews['items']);
+	$reviews['frame'] = $reviews['structure']['frame'];
+	$reviews['content'] = parser__replace($reviews['frame'],$reviews['replace']);
 }
 $service['content'] = $reviews['content'];
 

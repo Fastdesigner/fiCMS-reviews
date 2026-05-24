@@ -2,15 +2,21 @@
 
 if (!$site['onsite'] || !isset($settings['key']) || $html['is_superviser'] != 1) return;
 
+require_once dirname(__DIR__,2).'/src/Reviews.php';
+
 $reviews = [
+	'filter'=>['page'=>1,'count'=>20,'sort'=>'date','direction'=>'DESC','search'=>[],'attributes'=>['published'=>'','featured'=>'','rating'=>'','lid'=>'']],
+	'filter_options'=>[],
 	'output'=>['lists'=>[],'datalists'=>[],'result'=>[]],
 	'entries'=>['reviews'=>[]],
 	'tablist'=>[],
 	'attributes'=>[],
-	'data_file'=>dirname(__DIR__,2).'/data/reviews.json',
-	'data'=>['reviews'=>[],'updated'=>0],
 	'ratings'=>[],
+	'filter_ratings'=>[],
+	'languages'=>[],
+	'items'=>[],
 	'select'=>'',
+	'instance'=>new FiCMSReviews(dirname(__DIR__,2),$site['default_language'],$site['installed_languages']),
 	'inputs'=>[
 		'author'=>['required'=>true],
 		'source'=>[],
@@ -23,57 +29,31 @@ $reviews = [
 	]
 ];
 
-if (is_file($reviews['data_file'])) {
-	$reviews['loaded'] = helper__json_convert(file_get_contents($reviews['data_file']));
-	if (is_array($reviews['loaded'])) $reviews['data'] = array_merge($reviews['data'],$reviews['loaded']);
-}
-if (!isset($reviews['data']['reviews']) || !is_array($reviews['data']['reviews'])) $reviews['data']['reviews'] = [];
-
 foreach ([1,2,3,4,5] as $reviews['rating']) $reviews['ratings'][$reviews['rating']] = ['value'=>$reviews['rating'],'name'=>language__get_parsed($user['language'],'_reviews_rating_option',['rating'=>$reviews['rating']])];
 $reviews['inputs']['rating']['options'] = $reviews['ratings'];
+$reviews['filter_ratings'] = array_merge([['name'=>language__get($user['language'],'_sort_all'),'value'=>'']],array_values($reviews['ratings']));
+$reviews['languages'] = [
+	['name'=>language__get($user['language'],'_sort_all'),'value'=>''],
+	['name'=>language__get($user['language'],'_reviews_language_all'),'value'=>'all']
+];
+foreach ($site['installed_languages'] as $reviews['language']) $reviews['languages'][] = ['name'=>strtoupper($reviews['language']),'value'=>$reviews['language']];
 
 if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key']) {
 	$reviews['action'] = (string) ($_POST['action'] ?? '');
 	$reviews['id'] = trim((string) ($_POST['id'] ?? ''));
 
-	if ($reviews['action'] == 'delete' && $reviews['id'] !== '' && isset($reviews['data']['reviews'][$reviews['id']])) {
-		unset($reviews['data']['reviews'][$reviews['id']]);
-		$reviews['data']['updated'] = $_SERVER['now'];
-		$reviews['output']['result'] = ['result'=>helper__files_write($reviews['data_file'],$reviews['data'],true,true)];
+	if ($reviews['action'] == 'delete') {
+		$reviews['output']['result'] = ['result'=>$reviews['instance']->delete($reviews['id'])];
 		$_POST['handled'] = true;
 	}
 
 	if (!isset($_POST['handled']) && $reviews['action'] == 'save') {
-		if ($reviews['id'] == 'new' || $reviews['id'] == '') $reviews['id'] = 'review_'.$_SERVER['now'].'_'.bin2hex(random_bytes(4));
-		if (!preg_match('/^[A-Za-z0-9_.-]+$/',$reviews['id'])) $reviews['id'] = 'review_'.$_SERVER['now'].'_'.bin2hex(random_bytes(4));
-		$reviews['entry'] = $reviews['data']['reviews'][$reviews['id']] ?? ['id'=>$reviews['id'],'created'=>$_SERVER['now']];
-		$reviews['entry']['lid'] = helper__json_convert($_POST['lid'] ?? ['all']);
-		if (empty($reviews['entry']['lid'])) $reviews['entry']['lid'] = ['all'];
-		if (in_array('all',$reviews['entry']['lid'],true)) $reviews['entry']['lid'] = ['all'];
-		else $reviews['entry']['lid'] = array_values(array_intersect($reviews['entry']['lid'],$site['installed_languages']));
-		if (empty($reviews['entry']['lid'])) $reviews['entry']['lid'] = ['all'];
-		foreach (['author','source','text'] as $reviews['field']) {
-			$reviews['entry'][$reviews['field']] = helper__json_convert($_POST[$reviews['field']] ?? []);
-			foreach ($reviews['entry'][$reviews['field']] as $reviews['field_lid'] => $reviews['field_value']) $reviews['entry'][$reviews['field']][$reviews['field_lid']] = trim((string) $reviews['field_value']);
-		}
-		$reviews['entry']['rating'] = max(1,min(5,intval($_POST['rating'] ?? 5)));
-		$reviews['entry']['date'] = intval($_POST['date'] ?? $_SERVER['now']);
-		$reviews['entry']['published'] = !empty($_POST['published']) ? 1 : 0;
-		$reviews['entry']['featured'] = !empty($_POST['featured']) ? 1 : 0;
-		$reviews['entry']['updated'] = $_SERVER['now'];
-		$reviews['data']['reviews'][$reviews['id']] = $reviews['entry'];
-		$reviews['data']['updated'] = $_SERVER['now'];
-		$reviews['output']['result'] = ['result'=>helper__files_write($reviews['data_file'],$reviews['data'],true,true),'id'=>$reviews['id']];
+		$reviews['output']['result'] = $reviews['instance']->saveFromPost($reviews['id'],$_POST);
 		$_POST['handled'] = true;
 	}
 
 	if (!isset($_POST['handled']) && $reviews['action'] == 'load') {
-		$reviews['entry'] = $reviews['id'] == 'new' ? ['id'=>'new','author'=>[],'source'=>[],'rating'=>5,'text'=>[],'lid'=>['all'],'date'=>$_SERVER['now'],'published'=>1,'featured'=>0] : ($reviews['data']['reviews'][$reviews['id']] ?? ['id'=>$reviews['id'],'author'=>[],'source'=>[],'rating'=>5,'text'=>[],'lid'=>['all'],'date'=>$_SERVER['now'],'published'=>0,'featured'=>0]);
-		foreach (['author','source','text'] as $reviews['field']) {
-			if (!is_array($reviews['entry'][$reviews['field']] ?? [])) $reviews['entry'][$reviews['field']] = [$site['default_language']=>$reviews['entry'][$reviews['field']]];
-		}
-		$reviews['entry']['lid'] = helper__json_convert($reviews['entry']['lid'] ?? ['all']);
-		if (empty($reviews['entry']['lid'])) $reviews['entry']['lid'] = ['all'];
+		$reviews['entry'] = $reviews['id'] == 'new' ? $reviews['instance']->blank('new') : $reviews['instance']->find($reviews['id']);
 		$reviews['select'] = $settings['key'].'-form-lingual';
 		$reviews['inputs']['lid']['attributes'] = ['data-list'=>'installed-languages','data-selectcontrol'=>$reviews['select'],'data-all'=>'true'];
 		$reviews['formitems'] = create__form_items($reviews['inputs'],$reviews['entry'],'reviews',$user['language']);
@@ -100,39 +80,56 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 	if (!isset($_POST['handled'])) $_POST['handled'] = true;
 }
 
-$reviews['items'] = [];
-uasort($reviews['data']['reviews'],function($a,$b) {
-	$ad = intval($a['date'] ?? 0);
-	$bd = intval($b['date'] ?? 0);
-	if ($ad == $bd) return 0;
-	return ($ad < $bd) ? 1 : -1;
-});
+if (isset($_SESSION['filter'][$settings['key']]) && is_array($_SESSION['filter'][$settings['key']])) $reviews['filter'] = array_replace_recursive($reviews['filter'],$_SESSION['filter'][$settings['key']]);
+$reviews['admin'] = $reviews['instance']->admin($reviews['filter'],$user['language']);
+$reviews['filter'] = $reviews['admin']['filter'];
+$reviews['filter_options'] = [
+	'page'=>['name'=>language__get($user['language'],'_sort_page'),'min'=>1,'max'=>$reviews['admin']['pages']],
+	'search'=>['name'=>language__get($user['language'],'_sort_search')],
+	'sort'=>['name'=>language__get($user['language'],'_sort_by'),'options'=>[
+		['name'=>language__get($user['language'],'_sort_created'),'value'=>'date'],
+		['name'=>language__get($user['language'],'_reviews_filter_sort_featured'),'value'=>'featured'],
+		['name'=>language__get($user['language'],'_reviews_filter_sort_rating'),'value'=>'rating']
+	]],
+	'attributes'=>[
+		'published'=>['name'=>language__get($user['language'],'_reviews_published'),'options'=>[
+			['name'=>language__get($user['language'],'_sort_all'),'value'=>''],
+			['name'=>language__get($user['language'],'_option_yes'),'value'=>'1'],
+			['name'=>language__get($user['language'],'_option_no'),'value'=>'0']
+		]],
+		'featured'=>['name'=>language__get($user['language'],'_reviews_featured'),'options'=>[
+			['name'=>language__get($user['language'],'_sort_all'),'value'=>''],
+			['name'=>language__get($user['language'],'_option_yes'),'value'=>'1'],
+			['name'=>language__get($user['language'],'_option_no'),'value'=>'0']
+		]],
+		'rating'=>['name'=>language__get($user['language'],'_reviews_rating'),'options'=>$reviews['filter_ratings']],
+		'lid'=>['name'=>language__get($user['language'],'_reviews_lid'),'options'=>$reviews['languages']]
+	]
+];
 
-foreach ($reviews['data']['reviews'] as $reviews['id'] => $reviews['entry']) {
-	if (!is_array($reviews['entry']['author'] ?? [])) $reviews['entry']['author'] = [$site['default_language']=>$reviews['entry']['author']];
-	if (!is_array($reviews['entry']['text'] ?? [])) $reviews['entry']['text'] = [$site['default_language']=>$reviews['entry']['text']];
-	$reviews['entry']['lid'] = helper__json_convert($reviews['entry']['lid'] ?? ['all']);
+foreach ($reviews['admin']['rows'] as $reviews['entry']) {
 	$reviews['rating_text'] = str_repeat('★',max(1,min(5,intval($reviews['entry']['rating'] ?? 0))));
 	$reviews['state'] = !empty($reviews['entry']['published']) ? language__get($user['language'],'_reviews_published') : language__get($user['language'],'_reviews_draft');
 	$reviews['subtitle'] = $reviews['rating_text'].' · '.$reviews['state'].' · '.format__date_relative(intval($reviews['entry']['date'] ?? $_SERVER['now']),'date',$user['language']);
-	$reviews['title'] = trim((string) language__from_array($reviews['entry']['author'],$user['language']));
+	$reviews['title'] = trim((string) $reviews['entry']['author']);
 	if ($reviews['title'] == '') $reviews['title'] = language__get($user['language'],'_reviews_no_author');
-	$reviews['preview'] = trim((string) language__from_array($reviews['entry']['text'],$user['language']));
+	$reviews['preview'] = trim((string) $reviews['entry']['text']);
 	$reviews['row_items'] = [
-		['id'=>$settings['key'].'-'.$reviews['id'].'-text','tag'=>'font','classes'=>['forms__item'],'description'=>htmlspecialchars(mb_substr($reviews['preview'],0,220),ENT_QUOTES,'UTF-8')],
-		['id'=>$settings['key'].'-'.$reviews['id'].'-edit','description'=>language__get($user['language'],'_reviews_edit'),'actions'=>['load'=>['id'=>$reviews['id'],'form'=>true]]],
-		['id'=>$settings['key'].'-'.$reviews['id'].'-delete','tag'=>'li','items'=>[
-			['id'=>$settings['key'].'-'.$reviews['id'].'-delete-button','tag'=>'button','classes'=>['system-button'],'attributes'=>['type'=>'button','data-confirmation'=>language__get($user['language'],'_ui_confirm_delete')],'description'=>language__get($user['language'],'_reviews_delete'),'actions'=>['load'=>['action'=>'delete','id'=>$reviews['id']]]]
+		['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-text','tag'=>'font','classes'=>['forms__item'],'description'=>htmlspecialchars(mb_substr($reviews['preview'],0,220),ENT_QUOTES,'UTF-8')],
+		['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-edit','description'=>language__get($user['language'],'_reviews_edit'),'actions'=>['load'=>['id'=>$reviews['entry']['id'],'form'=>true]]],
+		['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-delete','tag'=>'li','items'=>[
+			['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-delete-button','tag'=>'button','classes'=>['system-button'],'attributes'=>['type'=>'button','data-confirmation'=>language__get($user['language'],'_ui_confirm_delete')],'description'=>language__get($user['language'],'_reviews_delete'),'actions'=>['load'=>['action'=>'delete','id'=>$reviews['entry']['id']]]]
 		]]
 	];
-	$reviews['items'][] = ['id'=>$settings['key'].'-'.$reviews['id'].'-row','tag'=>'li','items'=>[
-		create__dropdown($settings['key'].'-'.$reviews['id'].'-dropdown',$reviews['title'],create__list($settings['key'].'-'.$reviews['id'].'-list',$reviews['row_items'],['clear'=>true]),['subtitle'=>$reviews['subtitle'],'image'=>PAGEPATH.'/media/language/'.(in_array('all',$reviews['entry']['lid'],true) ? 'all' : $reviews['entry']['lid'][0]).'.png'])
+	$reviews['items'][] = ['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-row','tag'=>'li','items'=>[
+		create__dropdown($settings['key'].'-'.$reviews['entry']['id'].'-dropdown',$reviews['title'],create__list($settings['key'].'-'.$reviews['entry']['id'].'-list',$reviews['row_items'],['clear'=>true]),['subtitle'=>$reviews['subtitle'],'image'=>PAGEPATH.'/media/language/'.(in_array('all',$reviews['entry']['lid'],true) ? 'all' : $reviews['entry']['lid'][0]).'.png'])
 	]];
 }
 
-if (empty($reviews['items'])) $reviews['items'][] = ['id'=>$settings['key'].'-empty','tag'=>'font','classes'=>['forms__item'],'description'=>language__get($user['language'],'_reviews_empty')];
+if (empty($reviews['items'])) $reviews['items'][] = ['id'=>$settings['key'].'-empty','tag'=>'li','description'=>language__get($user['language'],'_sort_no_result'),'attributes'=>['data-noresult'=>'true']];
 $reviews['items'][] = ['id'=>$settings['key'].'-new','tag'=>'li','description'=>language__get($user['language'],'_reviews_new'),'classes'=>['system-next'],'actions'=>['load'=>['id'=>'new','form'=>true]]];
 
+$reviews['entries']['reviews'][] = create__filterlist($settings['key'],$reviews['filter_options'],$reviews['filter']);
 $reviews['entries']['reviews'][] = create__list($settings['key'].'-list',$reviews['items'],['clear'=>true,'sort'=>true]);
 $reviews['tablist'] = ['reviews'=>language__get($user['language'],'_reviews_tab_reviews')];
 $reviews['attributes'] = ['reviews'=>['classes'=>['forms__wrapper']]];

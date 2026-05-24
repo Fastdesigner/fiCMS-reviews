@@ -1,3 +1,4 @@
 {
-  "_reviews_rating_label": "%rating% su 5 stelle"
+  "_reviews_rating_label": "%rating% su 5 stelle",
+  "_reviews_rating_average_label": "%rating% su 5 stelle in media"
 }

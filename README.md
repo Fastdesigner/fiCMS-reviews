@@ -8,7 +8,7 @@ Install the repository through fiCMS Addons. The repository name and plugin id a
 
 ## Admin
 
-The plugin adds the settings screen `Info > Reviews`. Reviews are stored inside the plugin directory in `data/reviews.json`.
+The plugin adds the settings screen `Info > Reviews`. Reviews are stored inside the plugin directory in `data/reviews.json`, with file-backed data access owned by `src/Reviews.php`.
 
 Fields:
 - languages
@@ -35,13 +35,17 @@ Widget block options are supported through `widgetnum` for the limit and `widget
 When a review uses `all` languages, the widget may render it in every frontend language and picks the matching translated text when available.
 
 Widget display options:
+- `reviews_layout` (`list`, `slider`, `summary`)
+- `reviews_sort` (`featured`, `date`, `rating`) with `reviews_sort_dir`
+- `reviews_featured`
+- `reviews_language` as installed-language multipicker
 - `show_rating`
 - `show_source`
 - `show_date`
 
 ## Markup
 
-The default widget markup is in `widgets/reviews/frame.html`.
+The default widget markup is in `widgets/reviews/frame.html`. It contains repeat regions for `list`, `slider`, and `summary`.
 
 Designs can override it with:
 - `designs/<design>/widgets/review/frame.html`

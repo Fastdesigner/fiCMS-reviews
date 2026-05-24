@@ -1,137 +1,70 @@
 # Upcoming Changes
 
-This note captures the next planned work for `fiCMS-reviews` so another agent can continue without re-discovering the intended direction.
+This note captures planned work for `fiCMS-reviews` so another agent can continue without re-discovering the intended direction.
 
 ## Current State
 
 - Plugin id and repository name are `fiCMS-reviews`.
 - Addons installs the repository to `system/plugins/fiCMS-reviews`.
-- Reviews are currently file-backed in `data/reviews.json`.
+- Reviews are file-backed in `data/reviews.json`.
+- Review data ownership lives in `src/Reviews.php`.
 - Admin integration lives in `settings/info/reviews.php`.
 - Frontend widget lives in `widgets/reviews/widget.php`.
 - Default widget frame lives in `widgets/reviews/frame.html`.
-- Widget options currently include:
-  - `widgetnum` for amount.
-  - `widgetvalue` for minimum rating.
-  - `show_rating`.
-  - `show_source`.
-  - `show_date`.
+- Design override behavior supports `designs/<design>/widgets/review/frame.html` first, then `designs/<design>/widgets/reviews/frame.html`.
 
-## V1 Work Still Planned
+## V1 Cleanup Implemented
 
-### 1. Move Data Logic Into A Class
+- `src/Reviews.php` owns data file path resolution, loading, default structures, V1 normalization, saving, id creation, filtering, multilingual value resolution, and sorting.
+- The plugin uses a local `require_once` loading strategy for `src/Reviews.php`. The fiCMS plugin autoloader cannot directly map the hyphenated plugin id `fiCMS-reviews` to a PHP namespace without either a different namespace convention or a core autoloading change.
+- `settings/info/reviews.php` builds and handles the admin UI, but delegates review loading, saving, deletion, filtering, and sorting to the class.
+- `widgets/reviews/widget.php` asks the class for filtered render rows and aggregate summary data.
+- No database table was introduced for V1.
+- Existing simple string data remains readable for `author`, `source`, `text`, and `lid`.
 
-Create `src/Reviews.php` as the data owner. Because the plugin directory is `fiCMS-reviews`, do not use `fiCMS-reviews` as a PHP namespace; hyphens are not valid namespace characters. Before implementing, check the fiCMS plugin autoloader constraints and choose the smallest compatible loading strategy.
+## Widget Rendering
 
-Acceptable V1 approaches:
-- add a plugin-local class and `require_once` it from `settings/info/reviews.php` and `widgets/reviews/widget.php`
-- or adjust the class namespace/path only if fiCMS already has an established plugin namespace convention for hyphenated repository ids
+The default widget frame contains:
+- `frame` as the wrapper.
+- `[repeat=list]` for normal review cards.
+- `[repeat=slider]` for slider/card-strip output.
+- `[repeat=summary]` for aggregate summary output.
 
-Do not change fiCMS core autoloading just for this plugin in V1.
-
-The class should own:
-- data file path resolution
-- loading `data/reviews.json`
-- default structure
-- normalizing V1 data
-- saving
-- creating ids
-- filtering published reviews
-- resolving multilingual values
-- sorting
-
-Settings and widget files should become orchestration only:
-- `settings/info/reviews.php` builds and handles the admin UI.
-- `widgets/reviews/widget.php` asks the class for filtered render rows.
-
-Do not introduce a database table in V1 unless explicitly requested.
-
-### 2. Keep And Expand Template-Based Rendering
-
-Keep `widgets/reviews/frame.html` as the plugin default.
-
-Support multiple repeat/template regions:
-- `list` for normal review cards.
-- `slider` for slider/card-strip output.
-- `summary` for aggregate summary output.
-
-Suggested frame structure:
-- Keep `frame` as the wrapper.
-- Keep `[repeat=list]` as the default item template.
-- Add optional `[repeat=slider]` and `[repeat=summary]` sections that render when the selected layout needs them.
-
-Design override behavior must continue to support:
-- `designs/<design>/widgets/review/frame.html`
-- `designs/<design>/widgets/reviews/frame.html`
-
-The singular `review` override should remain first because the user explicitly requested that path.
+The selected layout determines which repeat section is used. If a selected layout has no matching repeat section in the active frame, rendering falls back to `list`.
 
 Important parser rule:
 - Never pass `$reviews['structure']['list']`, `slider`, or `summary` directly into `parser__replace()`.
 - `parser__replace()` takes the string by reference.
 - Always copy the template into a line variable before replacement.
 
-Example:
+## Widget Options
 
-```php
-$reviews['line'] = $reviews['structure']['list'];
-$reviews['items'][] = parser__replace($reviews['line'],$reviews['item']);
-```
+Current widget options:
+- `widgetnum` for amount.
+- `widgetvalue` for minimum rating.
+- `reviews_layout` as a datalist generated from the active frame repeat regions.
+- `reviews_sort` as a toggle with `featured`, `date`, `rating` plus `reviews_sort_dir`.
+- `reviews_featured` for featured-only output.
+- `reviews_language` as a multipicker using the `installed-languages` datalist.
+- `show_rating`.
+- `show_source`.
+- `show_date`.
 
-### 3. Add Widget Layout Options
+## Admin Filters
 
-Add a layout option for the widget, likely `reviews_layout` or similar.
-
-Initial layouts:
-- `list`
-- `slider`
-- `summary`
-
-Keep option naming consistent with existing fiCMS widget option patterns. Before adding a new name, inspect current widget option handling and avoid duplicating a standard option if one already exists.
-
-The selected layout should determine which repeat section is used. If a selected layout has no matching repeat section in the active frame, fall back to `list`.
-
-### 4. Add Admin And Widget Filters
-
-Filters make sense already in V1.
-
-Admin filters:
+Current admin filters:
 - search text
 - language
 - published/draft
 - featured
 - rating
+- sort by newest, featured first, or highest rating
 
-Widget filters/options:
-- amount
-- minimum rating
-- featured only
-- current language / all matching
-- show rating
-- show source
-- show date
-- sort mode
-
-Sort modes:
-- featured first, newest first
-- newest first
-- highest rating first
-
-Keep filtering in the data class, not duplicated between admin and widget.
-
-### 5. Preserve Backward Compatibility
-
-Existing simple string data must remain readable:
-- `author` as string
-- `source` as string
-- `text` as string
-- `lid` as string
-
-The normalization layer may expose these as arrays internally, but should not destroy existing data unexpectedly.
+Filtering is kept in the data class, not duplicated between admin and widget.
 
 ## V2 Boundary
 
-External source integrations belong to V2, not the immediate V1 cleanup.
+External source integrations belong to V2.
 
 Potential V2 connectors:
 - Google reviews
