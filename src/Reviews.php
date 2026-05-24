@@ -76,24 +76,6 @@ class FiCMSReviews {
 		return ['result'=>$this->write(),'id'=>$id];
 	}
 
-	public function saveGoogleFromPost($post) {
-		$this->integrations['providers']['google'] = $this->normalizeGoogleConfig(array_merge($this->integration('google'),[
-			'active'=>!empty($post['google_active']) ? 1 : 0,
-			'account_ref'=>$post['google_account_ref'] ?? 'default',
-			'account_name'=>$post['google_account_name'] ?? '',
-			'location_name'=>$post['google_location_name'] ?? '',
-			'location_title'=>$post['google_location_title'] ?? ''
-		]));
-		$this->integrations['updated'] = intval($_SERVER['now'] ?? time());
-		return ['result'=>$this->writeIntegrations()];
-	}
-
-	public function integration($provider = 'google') {
-		$provider = trim((string) $provider);
-		if ($provider == 'google') return $this->normalizeGoogleConfig($this->integrations['providers']['google'] ?? []);
-		return $this->integrations['providers'][$provider] ?? [];
-	}
-
 	public function providers() {
 		$providers = ['local'=>['name'=>'Local','value'=>'local']];
 		foreach ($this->data['reviews'] as $entry) {
@@ -101,28 +83,96 @@ class FiCMSReviews {
 			if ($entry['provider'] == '') continue;
 			$providers[$entry['provider']] = ['name'=>ucfirst($entry['provider']),'value'=>$entry['provider']];
 		}
-		$providers['google'] = ['name'=>'Google','value'=>'google'];
+		foreach ($this->providerDefinitions() as $key => $definition) $providers[$key] = ['name'=>$definition['name'],'value'=>$key];
 		return $providers;
 	}
 
-	public function googleStatus() {
-		$config = $this->integration('google');
-		$config['connected'] = class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$config['account_ref']) ? 1 : 0;
-		$config['provider_available'] = class_exists('\google\BusinessProfile') ? 1 : 0;
-		$config['oauth_available'] = class_exists('\oauth\OAuth') && \oauth\OAuth::provider('google') ? 1 : 0;
-		$config['ready'] = $config['active'] == 1 && $config['connected'] == 1 && $config['account_name'] != '' && $config['location_name'] != '' ? 1 : 0;
-		$config['timer'] = $this->timer('reviews_google_sync');
-		return $config;
+	public function providerDefinitions() {
+		return [
+			'google'=>['name'=>'Google','oauth'=>1,'sync'=>1]
+		];
 	}
 
-	public function googleAccounts() {
-		$config = $this->integration('google');
+	public function integrations() {
+		return $this->integrations['integrations'];
+	}
+
+	public function integration($id = '') {
+		$id = $this->validIntegrationId($id) ? trim((string) $id) : '';
+		foreach ($this->integrations['integrations'] as $integration) if ($integration['id'] == $id) return $integration;
+		return $this->blankIntegration($id == '' ? 'new' : $id);
+	}
+
+	public function blankIntegration($id = 'new') {
+		return ['id'=>$id,'label'=>'','provider'=>'google','active'=>1,'account_ref'=>'default','target'=>[],'last_sync'=>0,'last_error'=>'','last_count'=>0,'last_imported'=>0,'last_updated'=>0];
+	}
+
+	public function saveIntegrationFromPost($id, $post) {
+		$original = $this->validIntegrationId($id) ? trim((string) $id) : '';
+		$provider = $this->validProvider($post['integration_provider'] ?? '') ? trim((string) $post['integration_provider']) : 'google';
+		$saveId = $this->validIntegrationId($post['integration_id'] ?? '') ? trim((string) $post['integration_id']) : $original;
+		if ($saveId == '' || $saveId == 'new') $saveId = $this->createIntegrationId($provider);
+		$existing = $original != '' && $original != 'new' ? $this->integration($original) : $this->blankIntegration($saveId);
+		$integration = array_merge($existing,[
+			'id'=>$saveId,
+			'label'=>trim((string) ($post['integration_label'] ?? '')) != '' ? trim((string) ($post['integration_label'] ?? '')) : ucfirst($provider),
+			'provider'=>$provider,
+			'active'=>!empty($post['integration_active']) ? 1 : 0,
+			'account_ref'=>trim((string) ($post['integration_account_ref'] ?? ($existing['account_ref'] ?? 'default'))) ?: 'default'
+		]);
+		if ($provider == 'google' && isset($post['integration_google_location']) && is_string($post['integration_google_location'])) {
+			$location = $this->decode($post['integration_google_location']);
+			if (is_array($location)) $integration['target'] = [
+				'account_name'=>trim((string) ($location['account_name'] ?? '')),
+				'location_name'=>trim((string) ($location['location_name'] ?? '')),
+				'location_title'=>trim((string) ($location['location_title'] ?? ''))
+			];
+		}
+		foreach ($this->integrations['integrations'] as $key => $entry) {
+			if ($entry['id'] != $original && $entry['id'] != $saveId) continue;
+			array_splice($this->integrations['integrations'],$key,1);
+			break;
+		}
+		$this->integrations['integrations'][] = $this->normalizeIntegration($integration);
+		$this->integrations['updated'] = intval($_SERVER['now'] ?? time());
+		return ['result'=>$this->writeIntegrations(),'id'=>$saveId];
+	}
+
+	public function deleteIntegration($id) {
+		$id = trim((string) $id);
+		foreach ($this->integrations['integrations'] as $key => $integration) {
+			if ($integration['id'] != $id) continue;
+			array_splice($this->integrations['integrations'],$key,1);
+			$this->integrations['updated'] = intval($_SERVER['now'] ?? time());
+			return $this->writeIntegrations();
+		}
+		return false;
+	}
+
+	public function connectIntegration($id) {
+		$integration = $this->integration($id);
+		if ($integration['provider'] != 'google') return ['result'=>false];
+		return ['result'=>true,'redirect'=>PAGEPATH.'/oauth.php?action=authorize&provider=google&account='.rawurlencode($integration['account_ref'])];
+	}
+
+	public function integrationStatus($id) {
+		$integration = $this->integration($id);
+		$integration['connected'] = $integration['provider'] == 'google' && class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$integration['account_ref']) ? 1 : 0;
+		$integration['provider_available'] = $integration['provider'] != 'google' || class_exists('\google\BusinessProfile') ? 1 : 0;
+		$integration['oauth_available'] = $integration['provider'] != 'google' || (class_exists('\oauth\OAuth') && \oauth\OAuth::provider('google')) ? 1 : 0;
+		$integration['ready'] = $integration['provider'] == 'google' && $integration['connected'] == 1 && trim((string) ($integration['target']['account_name'] ?? '')) != '' && trim((string) ($integration['target']['location_name'] ?? '')) != '' ? 1 : 0;
+		$integration['timer'] = $this->timer('reviews_sync_'.$integration['id']);
+		return $integration;
+	}
+
+	public function googleAccounts($integration = []) {
+		$integration = $this->normalizeIntegration($integration);
 		$result = ['result'=>false,'items'=>[],'error'=>''];
 		if (!class_exists('\google\BusinessProfile')) {
 			$result['error'] = 'google_unavailable';
 			return $result;
 		}
-		$google = new \google\BusinessProfile($config['account_ref']);
+		$google = new \google\BusinessProfile($integration['account_ref']);
 		$accounts = $google->accounts();
 		if (!is_array($accounts)) {
 			$result['error'] = $this->googleLastError($google);
@@ -137,15 +187,15 @@ class FiCMSReviews {
 		return $result;
 	}
 
-	public function googleLocations($accountName = '') {
-		$config = $this->integration('google');
-		$accountName = trim((string) $accountName) !== '' ? trim((string) $accountName) : $config['account_name'];
+	public function googleLocations($integration = [], $accountName = '') {
+		$integration = $this->normalizeIntegration($integration);
+		$accountName = trim((string) $accountName) !== '' ? trim((string) $accountName) : trim((string) ($integration['target']['account_name'] ?? ''));
 		$result = ['result'=>false,'items'=>[],'error'=>''];
 		if (!class_exists('\google\BusinessProfile') || $accountName == '') {
 			$result['error'] = $accountName == '' ? 'google_account_missing' : 'google_unavailable';
 			return $result;
 		}
-		$google = new \google\BusinessProfile($config['account_ref']);
+		$google = new \google\BusinessProfile($integration['account_ref']);
 		$locations = $google->locations($accountName);
 		if (!is_array($locations)) {
 			$result['error'] = $this->googleLastError($google);
@@ -160,48 +210,76 @@ class FiCMSReviews {
 		return $result;
 	}
 
-	public function forceGoogleSync() {
-		$this->deleteTimer('reviews_google_sync');
-		return $this->syncGoogle(true);
+	public function googleLocationChoices($integration = []) {
+		$choices = [];
+		$accounts = $this->googleAccounts($integration);
+		if (!$accounts['result']) return ['result'=>false,'items'=>[],'error'=>$accounts['error']];
+		foreach ($accounts['items'] as $account) {
+			$locations = $this->googleLocations($integration,$account['value']);
+			if (!$locations['result']) return ['result'=>false,'items'=>[],'error'=>$locations['error']];
+			foreach ($locations['items'] as $location) $choices[] = [
+				'name'=>$account['name'].' · '.$location['name'],
+				'value'=>json_encode(['account_name'=>$account['value'],'location_name'=>$location['value'],'location_title'=>$location['name']],JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+			];
+		}
+		return ['result'=>true,'items'=>$choices,'error'=>''];
+	}
+
+	public function forceSyncIntegration($id) {
+		$integration = $this->integration($id);
+		$this->deleteTimer('reviews_sync_'.$integration['id']);
+		return $this->syncIntegration($integration,true);
 	}
 
 	public function cron() {
-		return $this->syncGoogle(false);
+		$result = ['result'=>true,'items'=>[]];
+		foreach ($this->integrations['integrations'] as $integration) {
+			if (intval($integration['active'] ?? 0) != 1) continue;
+			$result['items'][$integration['id']] = $this->syncIntegration($integration,false);
+		}
+		return $result;
 	}
 
-	public function syncGoogle($force = false) {
-		$config = $this->integration('google');
+	public function syncIntegration($integration = [], $force = false) {
+		$integration = $this->normalizeIntegration($integration);
+		if ($integration['provider'] == 'google') return $this->syncGoogle($integration,$force);
+		return ['result'=>false,'skipped'=>1,'count'=>0,'imported'=>0,'updated'=>0,'error'=>'provider_unavailable'];
+	}
+
+	public function syncGoogle($integration = [], $force = false) {
+		$integration = $this->normalizeIntegration($integration);
 		$result = ['result'=>false,'skipped'=>0,'count'=>0,'imported'=>0,'updated'=>0,'error'=>''];
-		if ($config['active'] != 1) {
+		if ($integration['active'] != 1) {
 			$result['skipped'] = 1;
 			$result['result'] = true;
 			return $result;
 		}
-		if (!$force && function_exists('helper__system_runtime') && !helper__system_runtime('reviews_google_sync',24,false,'hours')) {
+		if (!$force && function_exists('helper__system_runtime') && !helper__system_runtime('reviews_sync_'.$integration['id'],24,false,'hours')) {
 			$result['skipped'] = 1;
 			$result['result'] = true;
 			return $result;
 		}
-		if ($config['account_name'] == '' || $config['location_name'] == '') {
+		$integration = $this->resolveGoogleTarget($integration);
+		if (trim((string) ($integration['target']['account_name'] ?? '')) == '' || trim((string) ($integration['target']['location_name'] ?? '')) == '') {
 			$result['error'] = 'google_location_missing';
-			return $this->finishGoogleSync($config,$result);
+			return $this->finishIntegrationSync($integration,$result);
 		}
 		if (!class_exists('\google\BusinessProfile')) {
 			$result['error'] = 'google_unavailable';
-			return $this->finishGoogleSync($config,$result);
+			return $this->finishIntegrationSync($integration,$result);
 		}
 
-		$google = new \google\BusinessProfile($config['account_ref']);
+		$google = new \google\BusinessProfile($integration['account_ref']);
 		$pageToken = '';
 		$page = 0;
 		do {
-			$response = $google->reviews($config['account_name'],$config['location_name'],50,$pageToken,'updateTime desc');
+			$response = $google->reviews($integration['target']['account_name'],$integration['target']['location_name'],50,$pageToken,'updateTime desc');
 			if (!is_array($response)) {
 				$result['error'] = $this->googleLastError($google);
-				return $this->finishGoogleSync($config,$result);
+				return $this->finishIntegrationSync($integration,$result);
 			}
 			foreach ($response['reviews'] ?? [] as $review) {
-				$state = $this->importGoogleReview($review,$config);
+				$state = $this->importGoogleReview($review,$integration);
 				$result['count']++;
 				if ($state == 'imported') $result['imported']++;
 				if ($state == 'updated') $result['updated']++;
@@ -213,7 +291,7 @@ class FiCMSReviews {
 		$result['result'] = true;
 		$this->data['updated'] = intval($_SERVER['now'] ?? time());
 		$this->write();
-		return $this->finishGoogleSync($config,$result);
+		return $this->finishIntegrationSync($integration,$result);
 	}
 
 	public function admin($filter, $language) {
@@ -277,12 +355,15 @@ class FiCMSReviews {
 	}
 
 	private function loadIntegrations() {
-		$data = ['providers'=>['google'=>$this->normalizeGoogleConfig([])],'updated'=>0];
+		$data = ['integrations'=>[],'updated'=>0];
 		if (is_file($this->integrationsFile)) {
 			$loaded = $this->decode(file_get_contents($this->integrationsFile));
 			if (is_array($loaded)) $data = array_replace_recursive($data,$loaded);
 		}
-		$data['providers']['google'] = $this->normalizeGoogleConfig($data['providers']['google'] ?? []);
+		if (isset($data['providers']['google']) && is_array($data['providers']['google'])) $data['integrations'][] = $this->legacyGoogleIntegration($data['providers']['google']);
+		unset($data['providers']);
+		if (!is_array($data['integrations'] ?? null)) $data['integrations'] = [];
+		foreach ($data['integrations'] as $key => $integration) $data['integrations'][$key] = $this->normalizeIntegration($integration);
 		return $data;
 	}
 
@@ -448,14 +529,19 @@ class FiCMSReviews {
 		return $rows;
 	}
 
-	private function normalizeGoogleConfig($config) {
+	private function legacyGoogleIntegration($config) {
 		$config = is_array($config) ? $config : [];
 		return [
+			'id'=>'google',
+			'label'=>'Google',
+			'provider'=>'google',
 			'active'=>!empty($config['active']) ? 1 : 0,
 			'account_ref'=>trim((string) ($config['account_ref'] ?? 'default')) !== '' ? trim((string) ($config['account_ref'] ?? 'default')) : 'default',
-			'account_name'=>trim((string) ($config['account_name'] ?? '')),
-			'location_name'=>trim((string) ($config['location_name'] ?? '')),
-			'location_title'=>trim((string) ($config['location_title'] ?? '')),
+			'target'=>[
+				'account_name'=>trim((string) ($config['account_name'] ?? '')),
+				'location_name'=>trim((string) ($config['location_name'] ?? '')),
+				'location_title'=>trim((string) ($config['location_title'] ?? ''))
+			],
 			'last_sync'=>intval($config['last_sync'] ?? 0),
 			'last_error'=>trim((string) ($config['last_error'] ?? '')),
 			'last_count'=>intval($config['last_count'] ?? 0),
@@ -464,7 +550,61 @@ class FiCMSReviews {
 		];
 	}
 
-	private function importGoogleReview($review, $config) {
+	private function normalizeIntegration($integration) {
+		if (!is_array($integration)) $integration = [];
+		$provider = $this->validProvider($integration['provider'] ?? '') ? trim((string) $integration['provider']) : 'google';
+		$id = $this->validIntegrationId($integration['id'] ?? '') ? trim((string) $integration['id']) : $provider;
+		$target = is_array($integration['target'] ?? null) ? $integration['target'] : [];
+		return [
+			'id'=>$id,
+			'label'=>trim((string) ($integration['label'] ?? '')) != '' ? trim((string) ($integration['label'] ?? '')) : ucfirst($provider),
+			'provider'=>$provider,
+			'active'=>!empty($integration['active']) ? 1 : 0,
+			'account_ref'=>trim((string) ($integration['account_ref'] ?? 'default')) !== '' ? trim((string) ($integration['account_ref'] ?? 'default')) : 'default',
+			'target'=>[
+				'account_name'=>trim((string) ($target['account_name'] ?? '')),
+				'location_name'=>trim((string) ($target['location_name'] ?? '')),
+				'location_title'=>trim((string) ($target['location_title'] ?? ''))
+			],
+			'last_sync'=>intval($integration['last_sync'] ?? 0),
+			'last_error'=>trim((string) ($integration['last_error'] ?? '')),
+			'last_count'=>intval($integration['last_count'] ?? 0),
+			'last_imported'=>intval($integration['last_imported'] ?? 0),
+			'last_updated'=>intval($integration['last_updated'] ?? 0)
+		];
+	}
+
+	private function resolveGoogleTarget($integration) {
+		$integration = $this->normalizeIntegration($integration);
+		if (trim((string) ($integration['target']['account_name'] ?? '')) != '' && trim((string) ($integration['target']['location_name'] ?? '')) != '') return $integration;
+		$choices = $this->googleLocationChoices($integration);
+		if (!$choices['result'] || count($choices['items']) != 1) return $integration;
+		$location = $this->decode($choices['items'][0]['value']);
+		if (!is_array($location)) return $integration;
+		$integration['target'] = [
+			'account_name'=>trim((string) ($location['account_name'] ?? '')),
+			'location_name'=>trim((string) ($location['location_name'] ?? '')),
+			'location_title'=>trim((string) ($location['location_title'] ?? ''))
+		];
+		$this->storeIntegration($integration);
+		return $integration;
+	}
+
+	private function storeIntegration($integration) {
+		$integration = $this->normalizeIntegration($integration);
+		foreach ($this->integrations['integrations'] as $key => $entry) {
+			if ($entry['id'] != $integration['id']) continue;
+			$this->integrations['integrations'][$key] = $integration;
+			$this->integrations['updated'] = intval($_SERVER['now'] ?? time());
+			return $this->writeIntegrations();
+		}
+		$this->integrations['integrations'][] = $integration;
+		$this->integrations['updated'] = intval($_SERVER['now'] ?? time());
+		return $this->writeIntegrations();
+	}
+
+	private function importGoogleReview($review, $integration) {
+		$integration = $this->normalizeIntegration($integration);
 		$externalId = trim((string) ($review['reviewId'] ?? ($review['name'] ?? '')));
 		$id = $this->findProviderReview('google',$externalId);
 		if ($id == '') $id = $this->findGoogleDuplicate($review);
@@ -476,7 +616,7 @@ class FiCMSReviews {
 			'id'=>$id,
 			'created'=>$existing['created'] ?? intval($_SERVER['now'] ?? time()),
 			'author'=>[$this->defaultLanguage=>trim((string) ($review['reviewer']['displayName'] ?? ''))],
-			'source'=>[$this->defaultLanguage=>$config['location_title'] != '' ? $config['location_title'] : 'Google'],
+			'source'=>[$this->defaultLanguage=>$integration['target']['location_title'] != '' ? $integration['target']['location_title'] : $integration['label']],
 			'rating'=>$this->googleRating($review['starRating'] ?? 5),
 			'text'=>[$this->defaultLanguage=>trim((string) ($review['comment'] ?? ''))],
 			'lid'=>$existing['lid'] ?? ['all'],
@@ -495,15 +635,14 @@ class FiCMSReviews {
 		return $state;
 	}
 
-	private function finishGoogleSync($config, $result) {
-		$config['last_sync'] = intval($_SERVER['now'] ?? time());
-		$config['last_error'] = trim((string) ($result['error'] ?? ''));
-		$config['last_count'] = intval($result['count'] ?? 0);
-		$config['last_imported'] = intval($result['imported'] ?? 0);
-		$config['last_updated'] = intval($result['updated'] ?? 0);
-		$this->integrations['providers']['google'] = $this->normalizeGoogleConfig($config);
-		$this->integrations['updated'] = intval($_SERVER['now'] ?? time());
-		$this->writeIntegrations();
+	private function finishIntegrationSync($integration, $result) {
+		$integration = $this->normalizeIntegration($integration);
+		$integration['last_sync'] = intval($_SERVER['now'] ?? time());
+		$integration['last_error'] = trim((string) ($result['error'] ?? ''));
+		$integration['last_count'] = intval($result['count'] ?? 0);
+		$integration['last_imported'] = intval($result['imported'] ?? 0);
+		$integration['last_updated'] = intval($result['updated'] ?? 0);
+		$this->storeIntegration($integration);
 		return $result;
 	}
 
@@ -569,6 +708,17 @@ class FiCMSReviews {
 
 	private function validProvider($provider) {
 		return preg_match('/^[a-z0-9_-]+$/',trim((string) $provider));
+	}
+
+	private function validIntegrationId($id) {
+		return preg_match('/^[A-Za-z0-9_-]+$/',trim((string) $id));
+	}
+
+	private function createIntegrationId($provider) {
+		$id = $this->validProvider($provider) ? trim((string) $provider) : 'integration';
+		foreach ($this->integrations['integrations'] as $integration) if ($integration['id'] == $id) $id = '';
+		if ($id != '') return $id;
+		return 'integration_'.intval($_SERVER['now'] ?? time()).'_'.bin2hex(random_bytes(2));
 	}
 
 	private function createId() {

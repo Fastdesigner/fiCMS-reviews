@@ -7,9 +7,9 @@ This note captures planned work for `fiCMS-reviews` so another agent can continu
 - Plugin id and repository name are `fiCMS-reviews`.
 - Addons installs the repository to `system/plugins/fiCMS-reviews`.
 - Reviews are file-backed in `data/reviews.json`.
-- Google connection and sync metadata are file-backed in `data/integrations.json`.
+- Provider integrations and sync metadata are file-backed in `data/integrations.json`.
 - Review data ownership lives in `src/Reviews.php`.
-- Admin integration lives in `settings/info/reviews.php`.
+- Admin integration lives in `settings/pages/reviews.php`.
 - Frontend widget lives in `widgets/reviews/widget.php`.
 - Default widget frame lives in `widgets/reviews/frame.html`.
 - Design override behavior supports `designs/<design>/widgets/review/frame.html` first, then `designs/<design>/widgets/reviews/frame.html`.
@@ -18,7 +18,7 @@ This note captures planned work for `fiCMS-reviews` so another agent can continu
 
 - `src/Reviews.php` owns data file path resolution, loading, default structures, V1 normalization, saving, id creation, filtering, multilingual value resolution, and sorting.
 - The plugin uses a local `require_once` loading strategy for `src/Reviews.php`. The fiCMS plugin autoloader cannot directly map the hyphenated plugin id `fiCMS-reviews` to a PHP namespace without either a different namespace convention or a core autoloading change.
-- `settings/info/reviews.php` builds and handles the admin UI, but delegates review loading, saving, deletion, filtering, and sorting to the class.
+- `settings/pages/reviews.php` builds and handles the admin UI, but delegates review loading, saving, deletion, filtering, and sorting to the class.
 - `widgets/reviews/widget.php` asks the class for filtered render rows and aggregate summary data.
 - No database table was introduced for V1.
 - Existing simple string data remains readable for `author`, `source`, `text`, and `lid`.
@@ -90,13 +90,16 @@ V2 should add source ownership and synchronization rules before adding provider-
 
 Do not add external source assumptions to V1 storage or rendering.
 
-## Google Reviews Flow Implemented
+## Provider Integration Flow Implemented
 
-- Admin has a `Google` tab next to the shared review overview.
+- Admin has an `Integrationen` tab next to the shared review overview.
+- Integrations are shown as provider list entries, following the `fiCMS-booking` model. Do not add one tab per provider.
+- `Google verbinden` creates the Google integration and starts OAuth directly; the main view does not expose raw Google account/location fields.
 - OAuth starts through the existing `/oauth.php?action=authorize&provider=google&account=<account-ref>` flow, which delegates to `\oauth\OAuth::authorize(...)`.
-- The selected OAuth account ref, Google Business Profile account/location, display title, last sync, last counts, and last error are stored in `data/integrations.json`.
-- `cron/reviews.php` delegates daily Google sync to `src/Reviews.php`.
-- The admin can trigger a manual sync; this deletes/bypasses the timer through `forceGoogleSync()`.
+- The selected OAuth account ref, resolved Business Profile account/location, last sync, last counts, and last error are stored on the integration entry in `data/integrations.json`.
+- If Google exposes exactly one account/location, sync resolves it automatically. If multiple locations exist, the integration form shows a location choice only after OAuth is connected.
+- `cron/reviews.php` delegates daily sync for all active integrations to `src/Reviews.php`.
+- The admin can trigger a manual sync per integration; this deletes/bypasses the integration timer through `forceSyncIntegration()`.
 - Imported Google reviews are normalized in `src/Reviews.php` with `provider`, `source_type`, `external_id`, `external_updated`, `imported`, and `read_only`.
 - Provider + external review id is the primary duplicate key. A provider-local fallback by author/rating/date/text is only used when Google does not return an external id.
 - Imported Google content is read-only. The shared admin overview allows local language visibility, published state, and featured state.

@@ -8,7 +8,7 @@ Install the repository through fiCMS Addons. The repository name and plugin id a
 
 ## Admin
 
-The plugin adds the settings screen `Info > Reviews`. Reviews are stored inside the plugin directory in `data/reviews.json`, with file-backed data access owned by `src/Reviews.php`.
+The plugin adds the settings screen `Pages > Reviews`. Reviews are stored inside the plugin directory in `data/reviews.json`, with file-backed data access owned by `src/Reviews.php`.
 
 Fields:
 - languages
@@ -20,7 +20,7 @@ Fields:
 - published
 - featured
 
-The Google tab connects a Google OAuth account, stores the selected Business Profile account/location in `data/integrations.json`, and can trigger a manual sync. The plugin cron also syncs active Google locations daily. Imported Google reviews stay read-only for provider-owned content, but the admin can locally change language visibility, published state, and featured state in the shared review overview.
+The integrations tab manages review providers as list entries. `Google verbinden` creates the Google integration and starts OAuth directly. The selected OAuth account, resolved Business Profile source, sync state, and errors are stored in `data/integrations.json`. The plugin cron syncs active integrations daily. Imported provider reviews stay read-only for provider-owned content, but the admin can locally change language visibility, published state, and featured state in the shared review overview.
 
 ## Widget
 
