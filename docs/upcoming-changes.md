@@ -94,7 +94,9 @@ Do not add external source assumptions to V1 storage or rendering.
 
 - Admin has an `Integrationen` tab next to the shared review overview.
 - Integrations are shown as provider list entries, following the `fiCMS-booking` model. Do not add one tab per provider.
-- `Google verbinden` creates the Google integration and starts OAuth directly; the main view does not expose raw Google account/location fields.
+- `Neue Integration` creates a provider entry; provider-specific connection actions live on that integration entry.
+- Provider logos are resolved from `assets/img/providers/<provider>.svg|png|webp`.
+- The main view does not expose raw Google account/location fields.
 - OAuth starts through the existing `/oauth.php?action=authorize&provider=google&account=<account-ref>` flow, which delegates to `\oauth\OAuth::authorize(...)`.
 - The selected OAuth account ref, resolved Business Profile account/location, last sync, last counts, and last error are stored on the integration entry in `data/integrations.json`.
 - If Google exposes exactly one account/location, sync resolves it automatically. If multiple locations exist, the integration form shows a location choice only after OAuth is connected.

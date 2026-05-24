@@ -69,12 +69,6 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		$_POST['handled'] = true;
 	}
 
-	if (!isset($_POST['handled']) && $reviews['action'] == 'connect_provider') {
-		$reviews['created'] = $reviews['instance']->saveIntegrationFromPost('new',['integration_provider'=>$reviews['id'],'integration_label'=>ucfirst($reviews['id']),'integration_active'=>1,'integration_account_ref'=>'default']);
-		$reviews['output']['result'] = !empty($reviews['created']['result']) ? $reviews['instance']->connectIntegration($reviews['created']['id']) : ['result'=>false];
-		$_POST['handled'] = true;
-	}
-
 	if (!isset($_POST['handled']) && $reviews['action'] == 'connect_integration') {
 		$reviews['output']['result'] = $reviews['instance']->connectIntegration($reviews['integration_id']);
 		$_POST['handled'] = true;
@@ -219,11 +213,10 @@ $reviews['items'][] = ['id'=>$settings['key'].'-new','tag'=>'li','description'=>
 $reviews['entries']['reviews'][] = create__filterlist($settings['key'],$reviews['filter_options'],$reviews['filter']);
 $reviews['entries']['reviews'][] = create__list($settings['key'].'-list',$reviews['items'],['clear'=>true,'sort'=>true]);
 
-$reviews['connected_providers'] = [];
 foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 	$reviews['status'] = $reviews['instance']->integrationStatus($reviews['integration']['id']);
-	$reviews['connected_providers'][$reviews['integration']['provider']] = true;
 	$reviews['provider_label'] = $reviews['instance']->providerDefinitions()[$reviews['integration']['provider']]['name'] ?? ucfirst($reviews['integration']['provider']);
+	$reviews['provider_logo'] = $reviews['instance']->getProviderLogo($reviews['integration']['provider']);
 	$reviews['subtitle'] = $reviews['provider_label'].' · '.($reviews['status']['connected'] == 1 ? language__get($user['language'],'_reviews_integration_connected') : language__get($user['language'],'_reviews_integration_not_connected'));
 	if (trim((string) ($reviews['status']['target']['location_title'] ?? '')) != '') $reviews['subtitle'] .= ' · '.$reviews['status']['target']['location_title'];
 	$reviews['details'] = [
@@ -237,10 +230,9 @@ foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 	];
 	if ($reviews['status']['last_error'] != '') $reviews['details'][] = ['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-error','description'=>language__get($user['language'],'_reviews_integration_last_error'),'subtitle'=>htmlspecialchars($reviews['status']['last_error'],ENT_QUOTES,'UTF-8')];
 	$reviews['integration_items'][] = ['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-row','tag'=>'li','items'=>[
-		create__dropdown($settings['key'].'-'.$reviews['integration']['id'].'-dropdown',$reviews['integration']['label'],create__list($settings['key'].'-'.$reviews['integration']['id'].'-list',$reviews['details'],['clear'=>true]),['subtitle'=>$reviews['subtitle']])
+		create__dropdown($settings['key'].'-'.$reviews['integration']['id'].'-dropdown',$reviews['integration']['label'],create__list($settings['key'].'-'.$reviews['integration']['id'].'-list',$reviews['details'],['clear'=>true]),array_merge(['subtitle'=>$reviews['subtitle'],'attributes'=>['class'=>'system-next']],$reviews['provider_logo'] != '' ? ['image'=>$reviews['provider_logo']] : []))
 	]];
 }
-foreach ($reviews['instance']->providerDefinitions() as $reviews['provider_key'] => $reviews['provider_definition']) if (!isset($reviews['connected_providers'][$reviews['provider_key']])) $reviews['integration_items'][] = ['id'=>$settings['key'].'-provider-'.$reviews['provider_key'].'-connect','tag'=>'li','description'=>language__get_parsed($user['language'],'_reviews_integration_connect_provider',['provider'=>$reviews['provider_definition']['name']]),'classes'=>['system-next'],'actions'=>['load'=>['action'=>'connect_provider','id'=>$reviews['provider_key']]]];
 $reviews['integration_items'][] = ['id'=>$settings['key'].'-integration-new','tag'=>'li','description'=>language__get($user['language'],'_reviews_integration_new'),'classes'=>['system-next'],'actions'=>['load'=>['id'=>'integration-new','form'=>true]]];
 $reviews['entries']['integrations'][] = create__list($settings['key'].'-integrations-list',$reviews['integration_items'],['clear'=>true,'sort'=>true]);
 

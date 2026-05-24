@@ -93,6 +93,16 @@ class FiCMSReviews {
 		];
 	}
 
+	public function getProviderLogo($provider = '') {
+		$provider = preg_replace('/[^a-z0-9_]/i','',trim((string) $provider));
+		if ($provider == '') return '';
+		foreach (['svg','png','webp'] as $extension) {
+			$file = $this->basePath.'/assets/img/providers/'.$provider.'.'.$extension;
+			if (is_file($file)) return PAGEPATH.'/'.$file.'?v='.filemtime($file);
+		}
+		return '';
+	}
+
 	public function integrations() {
 		return $this->integrations['integrations'];
 	}

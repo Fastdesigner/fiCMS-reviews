@@ -33,7 +33,6 @@
   "_reviews_integration_target_missing": "Keine Quelle gewählt",
   "_reviews_integration_status": "Status",
   "_reviews_integration_connect": "Verbinden",
-  "_reviews_integration_connect_provider": "%provider% verbinden",
   "_reviews_integration_sync": "Jetzt synchronisieren",
   "_reviews_integration_sync_result": "%count% gelesen, %imported% neu, %updated% aktualisiert",
   "_reviews_integration_last_sync": "Letzter Sync",

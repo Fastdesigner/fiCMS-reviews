@@ -33,7 +33,6 @@
   "_reviews_integration_target_missing": "Nessuna fonte selezionata",
   "_reviews_integration_status": "Stato",
   "_reviews_integration_connect": "Collega",
-  "_reviews_integration_connect_provider": "Collega %provider%",
   "_reviews_integration_sync": "Sincronizza ora",
   "_reviews_integration_sync_result": "%count% lette, %imported% nuove, %updated% aggiornate",
   "_reviews_integration_last_sync": "Ultima sincronizzazione",
