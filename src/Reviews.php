@@ -168,10 +168,14 @@ class FiCMSReviews {
 			$this->storeIntegration($integration);
 			return ['result'=>false,'error'=>$integration['last_error']];
 		}
-		if (!\oauth\OAuth::provider('google')) {
-			$integration['last_error'] = 'Google OAuth provider or client_id unavailable';
+		if (!\oauth\OAuth::provider('google',false)) {
+			$integration['last_error'] = 'Google OAuth provider unavailable';
 			$this->storeIntegration($integration);
 			return ['result'=>false,'error'=>$integration['last_error']];
+		}
+		if ($integration['last_error'] != '') {
+			$integration['last_error'] = '';
+			$this->storeIntegration($integration);
 		}
 		return ['result'=>true,'redirect'=>PAGEPATH.'/oauth.php?action=authorize&provider=google&account='.rawurlencode($integration['account_ref']),'redirect_target'=>'_blank'];
 	}
@@ -180,7 +184,7 @@ class FiCMSReviews {
 		$integration = $this->integration($id);
 		$integration['connected'] = $integration['provider'] == 'google' && class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$integration['account_ref']) ? 1 : 0;
 		$integration['provider_available'] = $integration['provider'] != 'google' || class_exists('\google\BusinessProfile') ? 1 : 0;
-		$integration['oauth_available'] = $integration['provider'] != 'google' || (class_exists('\oauth\OAuth') && \oauth\OAuth::provider('google')) ? 1 : 0;
+		$integration['oauth_available'] = $integration['provider'] != 'google' || (class_exists('\oauth\OAuth') && \oauth\OAuth::provider('google',false)) ? 1 : 0;
 		$integration['ready'] = $integration['provider'] == 'google' && $integration['connected'] == 1 && trim((string) ($integration['target']['account_name'] ?? '')) != '' && trim((string) ($integration['target']['location_name'] ?? '')) != '' ? 1 : 0;
 		$integration['timer'] = $this->timer('reviews_sync_'.$integration['id']);
 		return $integration;
