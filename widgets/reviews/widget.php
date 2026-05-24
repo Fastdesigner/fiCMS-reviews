@@ -59,6 +59,7 @@ $reviews['rows'] = $reviews['instance']->widget([
 	'min_rating'=>$reviews['min_rating'],
 	'featured'=>intval($reviews['block']['option_reviews_featured'] ?? 0),
 	'language'=>$reviews['block']['option_reviews_language'] ?? ['all'],
+	'provider'=>$reviews['block']['option_reviews_provider'] ?? ['all'],
 	'sort'=>trim((string) ($reviews['block']['option_reviews_sort'] ?? 'featured')),
 	'direction'=>trim((string) ($reviews['block']['option_reviews_sort_dir'] ?? 'DESC'))
 ],$_SESSION['language']);
@@ -77,6 +78,7 @@ foreach ($reviews['rows'] as $reviews['entry']) {
 		'date'=>format__date_relative(intval($reviews['entry']['date'] ?? $_SERVER['now']),'date',$_SESSION['language']),
 		'datetime'=>date('Y-m-d',intval($reviews['entry']['date'] ?? $_SERVER['now'])),
 		'featured'=>intval($reviews['entry']['featured'] ?? 0),
+		'provider'=>htmlspecialchars(trim((string) ($reviews['entry']['provider'] ?? 'local')),ENT_QUOTES,'UTF-8'),
 		'has_author'=>trim((string) ($reviews['entry']['author'] ?? '')) !== '' ? 1 : 0,
 		'has_source'=>trim((string) ($reviews['entry']['source'] ?? '')) !== '' ? 1 : 0,
 		'render_rating'=>$reviews['options']['show_rating'],

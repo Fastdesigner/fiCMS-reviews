@@ -20,6 +20,8 @@ Fields:
 - published
 - featured
 
+The Google tab connects a Google OAuth account, stores the selected Business Profile account/location in `data/integrations.json`, and can trigger a manual sync. The plugin cron also syncs active Google locations daily. Imported Google reviews stay read-only for provider-owned content, but the admin can locally change language visibility, published state, and featured state in the shared review overview.
+
 ## Widget
 
 Use the widget tag in a fiCMS widget block:
@@ -39,6 +41,7 @@ Widget display options:
 - `reviews_sort` (`featured`, `date`, `rating`) with `reviews_sort_dir`
 - `reviews_featured`
 - `reviews_language` as installed-language multipicker
+- `reviews_provider` as source multipicker, defaulting to all sources
 - `show_rating`
 - `show_source`
 - `show_date`

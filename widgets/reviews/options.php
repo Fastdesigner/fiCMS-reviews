@@ -2,6 +2,8 @@
 
 if (!isset($block)) return [];
 
+require_once dirname(__DIR__,2).'/src/Reviews.php';
+
 $reviews_options = [
 	'options'=>[],
 	'values'=>[],
@@ -17,6 +19,7 @@ $reviews_options = [
 		'reviews_sort'=>['type'=>'toggle','default'=>'featured','dynamic_name'=>'_reviews_widget_sort','direction'=>'reviews_sort_dir','direction_default'=>'DESC','options'=>'sorts'],
 		'reviews_featured'=>['type'=>'checkbox','default'=>0,'dynamic_name'=>'_reviews_widget_featured'],
 		'reviews_language'=>['type'=>'multipicker','default'=>['all'],'dynamic_name'=>'_reviews_widget_language','attributes'=>['data-list'=>'installed-languages','data-all'=>'true','data-exact'=>'true']],
+		'reviews_provider'=>['type'=>'multipicker','default'=>['all'],'dynamic_name'=>'_reviews_widget_provider','attributes'=>['data-list'=>'reviews-providers','data-all'=>'true','data-exact'=>'true']],
 		'show_rating'=>['type'=>'checkbox','default'=>1,'dynamic_name'=>'_reviews_widget_show_rating'],
 		'show_source'=>['type'=>'checkbox','default'=>1,'dynamic_name'=>'_reviews_widget_show_source'],
 		'show_date'=>['type'=>'checkbox','default'=>1,'dynamic_name'=>'_reviews_widget_show_date']
@@ -24,8 +27,11 @@ $reviews_options = [
 ];
 
 $reviews_options['language'] = $GLOBALS['user']['language'];
+$reviews_options['instance'] = new FiCMSReviews(dirname(__DIR__,2),$GLOBALS['site']['default_language'],$GLOBALS['site']['installed_languages']);
 foreach ([1,2,3,4,5] as $reviews_options['rating']) $reviews_options['ratings'][$reviews_options['rating']] = ['value'=>$reviews_options['rating'],'name'=>language__get_parsed($reviews_options['language'],'_reviews_rating_option',['rating'=>$reviews_options['rating']])];
 foreach ($reviews_options['sorts'] as $reviews_options['sort']) $reviews_options['sort_options'][$reviews_options['sort']] = ['value'=>$reviews_options['sort'],'name'=>language__get($reviews_options['language'],'_reviews_widget_sort_'.$reviews_options['sort'])];
+$reviews_options['datalists']['reviews-providers'] = ['all'=>['name'=>language__get($reviews_options['language'],'_sort_all'),'value'=>'all']];
+foreach ($reviews_options['instance']->providers() as $reviews_options['provider']) $reviews_options['datalists']['reviews-providers'][$reviews_options['provider']['value']] = $reviews_options['provider'];
 
 $reviews_options['structure_file'] = widgets__layout_file('review');
 if ($reviews_options['structure_file'] == '') $reviews_options['structure_file'] = widgets__layout_file('reviews');

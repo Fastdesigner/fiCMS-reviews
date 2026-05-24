@@ -7,6 +7,7 @@ This note captures planned work for `fiCMS-reviews` so another agent can continu
 - Plugin id and repository name are `fiCMS-reviews`.
 - Addons installs the repository to `system/plugins/fiCMS-reviews`.
 - Reviews are file-backed in `data/reviews.json`.
+- Google connection and sync metadata are file-backed in `data/integrations.json`.
 - Review data ownership lives in `src/Reviews.php`.
 - Admin integration lives in `settings/info/reviews.php`.
 - Frontend widget lives in `widgets/reviews/widget.php`.
@@ -46,6 +47,7 @@ Current widget options:
 - `reviews_sort` as a toggle with `featured`, `date`, `rating` plus `reviews_sort_dir`.
 - `reviews_featured` for featured-only output.
 - `reviews_language` as a multipicker using the `installed-languages` datalist.
+- `reviews_provider` as a source multipicker with default `all`.
 - `show_rating`.
 - `show_source`.
 - `show_date`.
@@ -58,6 +60,7 @@ Current admin filters:
 - published/draft
 - featured
 - rating
+- provider/source
 - sort by newest, featured first, or highest rating
 
 Filtering is kept in the data class, not duplicated between admin and widget.
@@ -65,6 +68,11 @@ Filtering is kept in the data class, not duplicated between admin and widget.
 ## V2 Boundary
 
 External source integrations belong to V2.
+
+The dependency base is already prepared:
+- `plugin.json` declares `google` as required dependency from `Fastdesigner/google`.
+- The fiCMS Git updater can install manifest dependencies before continuing the parent plugin update.
+- The Google dependency plugin provides `provider/google.json` for `system/plugins/oauth` and exposes `\google\BusinessProfile`.
 
 Potential V2 connectors:
 - Google reviews
@@ -81,6 +89,19 @@ V2 should add source ownership and synchronization rules before adding provider-
 - provider-specific legal/SEO constraints
 
 Do not add external source assumptions to V1 storage or rendering.
+
+## Google Reviews Flow Implemented
+
+- Admin has a `Google` tab next to the shared review overview.
+- OAuth starts through the existing `/oauth.php?action=authorize&provider=google&account=<account-ref>` flow, which delegates to `\oauth\OAuth::authorize(...)`.
+- The selected OAuth account ref, Google Business Profile account/location, display title, last sync, last counts, and last error are stored in `data/integrations.json`.
+- `cron/reviews.php` delegates daily Google sync to `src/Reviews.php`.
+- The admin can trigger a manual sync; this deletes/bypasses the timer through `forceGoogleSync()`.
+- Imported Google reviews are normalized in `src/Reviews.php` with `provider`, `source_type`, `external_id`, `external_updated`, `imported`, and `read_only`.
+- Provider + external review id is the primary duplicate key. A provider-local fallback by author/rating/date/text is only used when Google does not return an external id.
+- Imported Google content is read-only. The shared admin overview allows local language visibility, published state, and featured state.
+- Widget rendering still consumes normalized review rows from `Reviews`; provider-specific API calls do not belong in `widgets/reviews/widget.php`.
+- Widget output is merged by default and can be filtered with `reviews_provider`.
 
 ## Verification Checklist
 
