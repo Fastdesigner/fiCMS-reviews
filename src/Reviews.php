@@ -98,7 +98,8 @@ class FiCMSReviews {
 		if ($provider == '') return '';
 		foreach (['svg','png','webp'] as $extension) {
 			$file = $this->basePath.'/assets/img/providers/'.$provider.'.'.$extension;
-			if (is_file($file)) return PAGEPATH.'/'.$file.'?v='.filemtime($file);
+			$path = (defined('PLUGINPATH') ? PLUGINPATH.'/'.basename($this->basePath) : trim($this->basePath,'/')).'/assets/img/providers/'.$provider.'.'.$extension;
+			if (is_file($file)) return rtrim(PAGEPATH,'/').'/'.$path.'?v='.filemtime($file);
 		}
 		return '';
 	}
@@ -162,6 +163,16 @@ class FiCMSReviews {
 	public function connectIntegration($id) {
 		$integration = $this->integration($id);
 		if ($integration['provider'] != 'google') return ['result'=>false];
+		if (!class_exists('\oauth\OAuth')) {
+			$integration['last_error'] = 'OAuth plugin unavailable';
+			$this->storeIntegration($integration);
+			return ['result'=>false,'error'=>$integration['last_error']];
+		}
+		if (!\oauth\OAuth::provider('google')) {
+			$integration['last_error'] = 'Google OAuth provider or client_id unavailable';
+			$this->storeIntegration($integration);
+			return ['result'=>false,'error'=>$integration['last_error']];
+		}
 		return ['result'=>true,'redirect'=>PAGEPATH.'/oauth.php?action=authorize&provider=google&account='.rawurlencode($integration['account_ref']),'redirect_target'=>'_blank'];
 	}
 
