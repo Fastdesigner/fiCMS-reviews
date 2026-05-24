@@ -20,5 +20,8 @@
   "_reviews_rating_option": "%rating% stars",
   "_reviews_rating_label": "%rating% out of 5 stars",
   "_reviews_widget_limit": "Amount",
-  "_reviews_widget_min_rating": "Minimum rating"
+  "_reviews_widget_min_rating": "Minimum rating",
+  "_reviews_widget_show_rating": "Show rating",
+  "_reviews_widget_show_source": "Show company or place",
+  "_reviews_widget_show_date": "Show date"
 }

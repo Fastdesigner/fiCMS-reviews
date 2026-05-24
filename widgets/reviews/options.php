@@ -5,7 +5,7 @@ if (!isset($block)) return [];
 $reviews_options = [
 	'options'=>[],
 	'values'=>[],
-	'dependencies'=>['widget'=>['enable'=>['reviews'],'disable'=>[]]],
+	'dependencies'=>['widget'=>['enable'=>['reviews','review'],'disable'=>[]]],
 	'ratings'=>[]
 ];
 
@@ -28,6 +28,30 @@ $reviews_options['options']['widgetvalue'] = [
 	'include'=>true,
 	'dependencies'=>$reviews_options['dependencies'],
 	'options'=>$reviews_options['ratings']
+];
+$reviews_options['options']['show_rating'] = [
+	'type'=>'checkbox',
+	'default'=>1,
+	'name'=>language__get($GLOBALS['user']['language'] ?? $_SESSION['language'],'_reviews_widget_show_rating'),
+	'option'=>'show_rating',
+	'include'=>true,
+	'dependencies'=>$reviews_options['dependencies']
+];
+$reviews_options['options']['show_source'] = [
+	'type'=>'checkbox',
+	'default'=>1,
+	'name'=>language__get($GLOBALS['user']['language'] ?? $_SESSION['language'],'_reviews_widget_show_source'),
+	'option'=>'show_source',
+	'include'=>true,
+	'dependencies'=>$reviews_options['dependencies']
+];
+$reviews_options['options']['show_date'] = [
+	'type'=>'checkbox',
+	'default'=>1,
+	'name'=>language__get($GLOBALS['user']['language'] ?? $_SESSION['language'],'_reviews_widget_show_date'),
+	'option'=>'show_date',
+	'include'=>true,
+	'dependencies'=>$reviews_options['dependencies']
 ];
 
 return ['options'=>$reviews_options['options'],'values'=>$reviews_options['values']];

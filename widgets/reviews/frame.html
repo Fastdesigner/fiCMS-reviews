@@ -1,0 +1,15 @@
+<section class="reviews" data-count="###count###">
+	<div class="reviews__list">
+		[repeat=list]
+		<article class="reviews__item" data-rating="###rating_value###" data-featured="###featured###">
+			[if '###render_rating###'=='1']<div class="reviews__rating" aria-label="###rating_label###">###rating_stars###</div>[/if]
+			<blockquote class="reviews__text">###text###</blockquote>
+			<footer class="reviews__meta">
+				[if '###has_author###'=='1']<span class="reviews__author">###author###</span>[/if]
+				[if '###render_source###'=='1']<span class="reviews__source">###source###</span>[/if]
+				[if '###render_date###'=='1']<time class="reviews__date" datetime="###datetime###">###date###</time>[/if]
+			</footer>
+		</article>
+		[/repeat]
+	</div>
+</section>

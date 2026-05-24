@@ -33,3 +33,18 @@ The optional inner value is the maximum number of reviews. Without a value the w
 Widget block options are supported through `widgetnum` for the limit and `widgetvalue` for the minimum rating.
 
 When a review uses `all` languages, the widget may render it in every frontend language and picks the matching translated text when available.
+
+Widget display options:
+- `show_rating`
+- `show_source`
+- `show_date`
+
+## Markup
+
+The default widget markup is in `widgets/reviews/frame.html`.
+
+Designs can override it with:
+- `designs/<design>/widgets/review/frame.html`
+- `designs/<design>/widgets/reviews/frame.html`
+
+The singular `review` path is checked first for design overrides. The plugin default remains `widgets/reviews/frame.html`.
