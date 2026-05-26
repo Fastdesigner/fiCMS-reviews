@@ -95,6 +95,7 @@ Do not add external source assumptions to V1 storage or rendering.
 - Admin has an `Integrationen` tab next to the shared review overview.
 - Integrations are shown as provider list entries, following the `fiCMS-booking` model. Do not add one tab per provider.
 - `Neue Integration` first shows label and provider. `Verbinden` is handled by `assets/js/settings/reviews.js`, saves the entry through AJAX, starts OAuth in a popup window, shows a popup-action hint, and polls the saved integration status every ten seconds. After the OAuth account is connected, the settings script reloads the integration form so the admin can select the Business Profile source and save.
+- If Google source loading fails with an OAuth error, the integration form marks the connected state as requiring reconnect and exposes a reconnect action even though the local OAuth account file still exists.
 - Existing provider-specific connection actions live on that integration entry.
 - Provider logos are resolved from `assets/img/providers/<provider>.svg|png|webp`.
 - The main view does not expose raw Google account/location fields.

@@ -17,6 +17,7 @@ $reviews = [
 	'integration_items'=>[],
 	'items'=>[],
 	'select'=>'',
+	'location_oauth_error'=>0,
 	'instance'=>new FiCMSReviews(dirname(__DIR__,2),$site['default_language'],$site['installed_languages']),
 	'inputs'=>[
 		'author'=>['required'=>true],
@@ -120,8 +121,12 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		if ($reviews['integration']['provider'] == 'google' && $reviews['integration_id'] != 'new') {
 			$reviews['locations'] = ['result'=>false,'items'=>[],'error'=>''];
 			if ($reviews['status']['connected'] == 1) $reviews['locations'] = $reviews['instance']->googleLocationChoices($reviews['integration']);
+			$reviews['location_error'] = strtolower(trim((string) ($reviews['locations']['error'] ?? '')));
+			$reviews['location_oauth_error'] = $reviews['location_error'] != '' && (in_array($reviews['location_error'],['oauth_unavailable','refresh_token_missing','access_token_missing','account_unavailable','provider_unavailable','provider_or_client_unavailable'],true) || strpos($reviews['location_error'],'bridge_refresh') !== false || strpos($reviews['location_error'],'refresh_http') !== false || strpos($reviews['location_error'],'invalid authentication credentials') !== false) ? 1 : 0;
+			$reviews['connected_subtitle'] = $reviews['status']['connected'] == 1 ? language__get($user['language'],'_option_yes') : language__get($user['language'],'_option_no');
+			if ($reviews['location_oauth_error'] == 1) $reviews['connected_subtitle'] .= ' · '.language__get($user['language'],'_reviews_integration_reconnect_required');
 			$reviews['status_items'] = [
-				['id'=>$settings['key'].'-integration-status-connected','description'=>language__get($user['language'],'_reviews_integration_connected'),'subtitle'=>$reviews['status']['connected'] == 1 ? language__get($user['language'],'_option_yes') : language__get($user['language'],'_option_no')],
+				['id'=>$settings['key'].'-integration-status-connected','description'=>language__get($user['language'],'_reviews_integration_connected'),'subtitle'=>$reviews['connected_subtitle']],
 				['id'=>$settings['key'].'-integration-status-target','description'=>language__get($user['language'],'_reviews_integration_target'),'subtitle'=>trim((string) ($reviews['status']['target']['location_title'] ?? '')) != '' ? $reviews['status']['target']['location_title'] : language__get($user['language'],'_reviews_integration_target_missing')],
 				['id'=>$settings['key'].'-integration-status-sync','description'=>language__get($user['language'],'_reviews_integration_last_sync'),'subtitle'=>$reviews['status']['ready'] == 1 && $reviews['status']['last_sync'] > 0 ? format__date_relative($reviews['status']['last_sync'],'date',$user['language']) : language__get($user['language'],'_never')],
 				['id'=>$settings['key'].'-integration-status-result','description'=>language__get($user['language'],'_reviews_integration_last_result'),'subtitle'=>language__get_parsed($user['language'],'_reviews_integration_sync_result',['count'=>$reviews['status']['last_count'],'imported'=>$reviews['status']['last_imported'],'updated'=>$reviews['status']['last_updated']])]
@@ -135,7 +140,7 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 				$reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-google-location','type'=>'form','classes'=>['forms__item'],'form'=>['type'=>'radio','option'=>'integration_google_location','name'=>language__get($user['language'],'_reviews_google_location_name'),'options'=>$reviews['locations']['items'],'value'=>$reviews['location_value']]];
 			}
 		}
-		$reviews['connect_label'] = $reviews['integration_id'] != 'new' && $reviews['integration']['provider'] == 'google' && $reviews['status']['connected'] != 1 ? language__get($user['language'],'_reviews_integration_connect') : false;
+		$reviews['connect_label'] = $reviews['integration_id'] != 'new' && $reviews['integration']['provider'] == 'google' && ($reviews['status']['connected'] != 1 || $reviews['location_oauth_error'] == 1) ? language__get($user['language'],$reviews['status']['connected'] == 1 ? '_reviews_integration_reconnect' : '_reviews_integration_connect') : false;
 		$reviews['connect_action'] = $reviews['connect_label'] ? ['load'=>['action'=>'save_connect_integration','id'=>$reviews['integration']['id'],'target'=>'_blank','function'=>'reviews__connect']] : [];
 		$reviews['submit_label'] = $reviews['integration_id'] == 'new' ? language__get($user['language'],'_reviews_integration_connect') : language__get($user['language'],'_settings_form_save');
 		$reviews['submit_action'] = ['load'=>['action'=>$reviews['integration_id'] == 'new' ? 'save_connect_integration' : 'save_integration','id'=>$reviews['integration_id']]];
