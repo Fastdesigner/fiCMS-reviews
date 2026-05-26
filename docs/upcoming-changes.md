@@ -101,6 +101,9 @@ Do not add external source assumptions to V1 storage or rendering.
 - OAuth starts through the existing `/oauth.php?action=authorize&provider=google&account=<account-ref>` flow, which delegates to `\oauth\OAuth::authorize(...)`.
 - The selected OAuth account ref, resolved Business Profile account/location, last sync, last counts, and last error are stored on the integration entry in `data/integrations.json`.
 - If Google exposes exactly one account/location, the integration form shows it preselected after OAuth. If multiple locations exist, the same form shows all location choices after OAuth is connected.
+- OAuth connection and sync readiness are separate states: a connected Google OAuth account is not sync-ready until a Business Profile location is selected or uniquely resolved.
+- The popup connection hint must only be visible while connecting, and sync actions should only be offered once the integration is ready.
+- A missing Google location is configuration state, not a provider sync failure; do not persist `google_location_missing` as the last sync error.
 - `cron/reviews.php` delegates daily sync for all active integrations to `src/Reviews.php`.
 - The admin can trigger a manual sync per integration; this deletes/bypasses the integration timer through `forceSyncIntegration()`.
 - Imported Google reviews are normalized in `src/Reviews.php` with `provider`, `source_type`, `external_id`, `external_updated`, `imported`, and `read_only`.

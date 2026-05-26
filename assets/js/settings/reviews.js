@@ -18,6 +18,7 @@ function reviews__init(form) {
 	let state = reviews__state(form);
 	if (!state) return false;
 	let connected = state.getAttribute('data-reviews-connected') == '1';
+	if (connected) reviews__hint(form,false);
 	form.querySelectorAll('button[data-action="save_integration"]').forEach(button => {
 		button.disabled = !connected && state.getAttribute('data-reviews-provider') == 'google';
 	});

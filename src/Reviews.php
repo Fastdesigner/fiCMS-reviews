@@ -129,7 +129,7 @@ class FiCMSReviews {
 			'id'=>$saveId,
 			'label'=>trim((string) ($post['integration_label'] ?? '')) != '' ? trim((string) ($post['integration_label'] ?? '')) : ucfirst($provider),
 			'provider'=>$provider,
-			'active'=>!empty($post['integration_active']) ? 1 : 0,
+			'active'=>($original == '' || $original == 'new') && !isset($post['integration_active']) ? 1 : (!empty($post['integration_active']) ? 1 : 0),
 			'account_ref'=>trim((string) ($post['integration_account_ref'] ?? ($existing['account_ref'] ?? 'default'))) ?: 'default'
 		]);
 		if ($provider == 'google' && isset($post['integration_google_location']) && is_string($post['integration_google_location'])) {
@@ -139,6 +139,7 @@ class FiCMSReviews {
 				'location_name'=>trim((string) ($location['location_name'] ?? '')),
 				'location_title'=>trim((string) ($location['location_title'] ?? ''))
 			];
+			if (is_array($location) && $integration['last_error'] == 'google_location_missing') $integration['last_error'] = '';
 		}
 		foreach ($this->integrations['integrations'] as $key => $entry) {
 			if ($entry['id'] != $original && $entry['id'] != $saveId) continue;
@@ -183,6 +184,7 @@ class FiCMSReviews {
 
 	public function integrationStatus($id) {
 		$integration = $this->integration($id);
+		if ($integration['provider'] == 'google' && class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$integration['account_ref']) && trim((string) ($integration['target']['location_name'] ?? '')) == '') $integration = $this->resolveGoogleTarget($integration);
 		$integration['connected'] = $integration['provider'] == 'google' && class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$integration['account_ref']) ? 1 : 0;
 		$integration['provider_available'] = $integration['provider'] != 'google' || class_exists('\google\BusinessProfile') ? 1 : 0;
 		$integration['oauth_available'] = $integration['provider'] != 'google' || (class_exists('\oauth\OAuth') && \oauth\OAuth::provider('google',false)) ? 1 : 0;
@@ -287,8 +289,9 @@ class FiCMSReviews {
 		}
 		$integration = $this->resolveGoogleTarget($integration);
 		if (trim((string) ($integration['target']['account_name'] ?? '')) == '' || trim((string) ($integration['target']['location_name'] ?? '')) == '') {
+			$result['skipped'] = 1;
 			$result['error'] = 'google_location_missing';
-			return $this->finishIntegrationSync($integration,$result);
+			return $result;
 		}
 		if (!class_exists('\google\BusinessProfile')) {
 			$result['error'] = 'google_unavailable';
@@ -612,6 +615,7 @@ class FiCMSReviews {
 			'location_name'=>trim((string) ($location['location_name'] ?? '')),
 			'location_title'=>trim((string) ($location['location_title'] ?? ''))
 		];
+		if ($integration['last_error'] == 'google_location_missing') $integration['last_error'] = '';
 		$this->storeIntegration($integration);
 		return $integration;
 	}
