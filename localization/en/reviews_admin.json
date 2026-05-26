@@ -33,6 +33,7 @@
   "_reviews_integration_target_missing": "No source selected",
   "_reviews_integration_status": "Status",
   "_reviews_integration_connect": "Connect",
+  "_reviews_integration_popup_hint": "Please complete the connection in the popup window. The selection will load automatically afterwards.",
   "_reviews_integration_sync": "Sync now",
   "_reviews_integration_sync_result": "%count% read, %imported% new, %updated% updated",
   "_reviews_integration_last_sync": "Last sync",

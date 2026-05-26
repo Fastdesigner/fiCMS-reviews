@@ -33,6 +33,7 @@
   "_reviews_integration_target_missing": "No se ha seleccionado ninguna fuente",
   "_reviews_integration_status": "Estado",
   "_reviews_integration_connect": "Conectar",
+  "_reviews_integration_popup_hint": "Completa la conexión en la ventana emergente. La selección se cargará automáticamente después.",
   "_reviews_integration_sync": "Sincronizar ahora",
   "_reviews_integration_sync_result": "%count% leídas, %imported% nuevas, %updated% actualizadas",
   "_reviews_integration_last_sync": "Última sincronización",

@@ -20,7 +20,7 @@ Fields:
 - published
 - featured
 
-The integrations tab manages review providers as list entries following the `fiCMS-booking` model. `Neue Integration` opens the provider form; `Verbinden` saves the entry and starts OAuth in a separate window. Existing entries expose connect, sync, status, and delete actions. Provider logos are resolved from `assets/img/providers/<provider>.svg|png|webp`. The selected OAuth account, resolved Business Profile source, sync state, and errors are stored in `data/integrations.json`. The plugin cron syncs active integrations daily. Imported provider reviews stay read-only for provider-owned content, but the admin can locally change language visibility, published state, and featured state in the shared review overview.
+The integrations tab manages review providers as list entries following the `fiCMS-booking` model. `Neue Integration` first asks for label and provider; `Verbinden` saves the entry and starts OAuth in a popup window. The plugin settings script polls the saved integration every ten seconds while the popup is open. After successful OAuth, the integration form reloads, the admin chooses the Business Profile source, and saves. Existing entries expose connect, sync, status, and delete actions. Provider logos are resolved from `assets/img/providers/<provider>.svg|png|webp`. The selected OAuth account, resolved Business Profile source, sync state, and errors are stored in `data/integrations.json`. The plugin cron syncs active integrations daily. Imported provider reviews stay read-only for provider-owned content, but the admin can locally change language visibility, published state, and featured state in the shared review overview.
 
 ## Widget
 
