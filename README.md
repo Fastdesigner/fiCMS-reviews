@@ -49,6 +49,7 @@ Widget display options:
 ## Markup
 
 The default widget markup is in `widgets/reviews/frame.html`. It contains repeat regions for `list`, `slider`, and `summary`.
+Review item placeholders include `author`, `author_initials`, `source`, `text`, `rating_value`, `rating_label`, `rating_stars`, `date`, and `datetime`.
 
 Designs can override it with:
 - `designs/<design>/widgets/review/frame.html`

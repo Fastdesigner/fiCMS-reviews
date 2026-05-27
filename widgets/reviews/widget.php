@@ -69,6 +69,7 @@ foreach ($reviews['rows'] as $reviews['entry']) {
 	$reviews['item'] = [
 		'id'=>htmlspecialchars(trim((string) ($reviews['entry']['id'] ?? '')),ENT_QUOTES,'UTF-8'),
 		'author'=>htmlspecialchars(trim((string) ($reviews['entry']['author'] ?? '')),ENT_QUOTES,'UTF-8'),
+		'author_initials'=>htmlspecialchars(trim((string) ($reviews['entry']['author_initials'] ?? '')),ENT_QUOTES,'UTF-8'),
 		'source'=>htmlspecialchars(trim((string) ($reviews['entry']['source'] ?? '')),ENT_QUOTES,'UTF-8'),
 		'text'=>nl2br(htmlspecialchars(trim((string) ($reviews['entry']['text'] ?? '')),ENT_QUOTES,'UTF-8')),
 		'rating'=>$reviews['rating'],

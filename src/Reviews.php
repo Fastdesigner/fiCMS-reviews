@@ -429,11 +429,24 @@ class FiCMSReviews {
 	private function row($id, $entry, $language) {
 		$entry = $this->normalizeEntry($id,$entry);
 		$entry['author'] = $this->resolveText($entry['author'],$language);
+		$entry['author_initials'] = $this->initials($entry['author']);
 		$entry['source'] = $this->resolveText($entry['source'],$language);
 		$entry['text'] = $this->resolveText($entry['text'],$language);
 		$entry['sort_id'] = $id;
 		$entry['search'] = trim($id.' '.$entry['author'].' '.$entry['source'].' '.$entry['text'].' '.$entry['provider']);
 		return $entry;
+	}
+
+	private function initials($name) {
+		$name = preg_replace('/[^\p{L}\p{N}\s\-]+/u',' ',trim((string) $name));
+		$name = preg_replace('/\s+/u',' ',trim((string) $name));
+		if ($name == '') return '';
+		$parts = preg_split('/[\s\-]+/u',$name);
+		$parts = array_values(array_filter($parts,function($part) { return trim((string) $part) !== ''; }));
+		if (empty($parts)) return '';
+		$initials = mb_substr($parts[0],0,1,'UTF-8');
+		$initials .= count($parts) > 1 ? mb_substr($parts[count($parts) - 1],0,1,'UTF-8') : mb_substr($parts[0],1,1,'UTF-8');
+		return mb_strtoupper($initials,'UTF-8');
 	}
 
 	private function normalizeText($value) {
