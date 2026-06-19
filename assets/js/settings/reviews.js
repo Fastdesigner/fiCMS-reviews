@@ -4,12 +4,80 @@ function reviews__form(obj) {
 	return elem.closest('form[data-setting="pages-reviews"]') || elem.closest('[data-setting="pages-reviews"] form') || elem.closest('form');
 }
 
-function reviews__diagnostic(stage, data = {}) {
-	console.log('FICMS_REVIEWS_RECONNECT',Object.assign({stage:stage},data));
-}
-
 function reviews__state(form) {
 	return form ? form.querySelector('[data-reviews-integration]') : false;
+}
+
+function reviews__overlay_styles() {
+	if (document.getElementById('reviews-oauth-overlay-style')) return true;
+	let style = document.createElement('style');
+	style.id = 'reviews-oauth-overlay-style';
+	style.textContent = 'form[data-reviews-oauth-active="true"]{position:relative}[data-reviews-oauth-overlay]{position:absolute;inset:0;z-index:20;display:grid;align-content:center;gap:var(--system-gap,1rem);padding:1.5rem;background:color-mix(in srgb,canvas 88%,transparent);backdrop-filter:blur(5px);border-radius:var(--system-border-radius,8px);text-align:center}[data-reviews-oauth-overlay] p{margin:0;font-size:1rem;line-height:1.4}[data-reviews-oauth-actions]{display:flex;gap:var(--system-gap,.75rem);justify-content:center;flex-wrap:wrap}[data-reviews-oauth-actions] button{min-width:8rem}';
+	document.head.append(style);
+	return true;
+}
+
+function reviews__overlay_data(form) {
+	let data = form ? form.querySelector('[data-reviews-oauth-message]') : false;
+	let provider = data ? (data.getAttribute('data-reviews-oauth-provider') || 'Google') : 'Google';
+	let message = data ? (data.getAttribute('data-reviews-oauth-message') || '') : '';
+	return {
+		provider:provider,
+		message:(message || 'Schließen Sie die Autorisierung mit %provider% ab.').replace('%provider%',provider),
+		refresh:data ? (data.getAttribute('data-reviews-oauth-refresh') || 'Aktualisieren') : 'Aktualisieren',
+		cancel:data ? (data.getAttribute('data-reviews-oauth-cancel') || 'Abbrechen') : 'Abbrechen'
+	};
+}
+
+function reviews__overlay(form, active = true, options = {}) {
+	if (!form) return false;
+	let overlay = form.querySelector('[data-reviews-oauth-overlay]');
+	if (!active) {
+		form.removeAttribute('data-reviews-oauth-active');
+		if (overlay) overlay.remove();
+		return true;
+	}
+
+	reviews__overlay_styles();
+	let data = reviews__overlay_data(form);
+	if (!overlay) {
+		overlay = document.createElement('div');
+		overlay.setAttribute('data-reviews-oauth-overlay','true');
+		let message = document.createElement('p');
+		let actions = document.createElement('div');
+		let refresh = document.createElement('button');
+		let cancel = document.createElement('button');
+		actions.setAttribute('data-reviews-oauth-actions','true');
+		refresh.type = 'button';
+		cancel.type = 'button';
+		refresh.className = 'system-button';
+		cancel.className = 'system-button';
+		refresh.setAttribute('data-reviews-oauth-refresh-button','true');
+		cancel.setAttribute('data-reviews-oauth-cancel-button','true');
+		actions.append(refresh,cancel);
+		overlay.append(message,actions);
+		form.append(overlay);
+		refresh.addEventListener('click',event => {
+			event.preventDefault();
+			event.stopPropagation();
+			let id = overlay.getAttribute('data-reviews-oauth-id') || '';
+			if (id != '') reviews__poll(form,id,false,0,options.button || false,true);
+		});
+		cancel.addEventListener('click',event => {
+			event.preventDefault();
+			event.stopPropagation();
+			if (timer.reviews__poll) clearTimeout(timer.reviews__poll);
+			reviews__overlay(form,false);
+			reviews__hint(form,false);
+			if (options.button) options.button.disabled = false;
+		});
+	}
+	overlay.querySelector('p').textContent = data.message;
+	overlay.querySelector('[data-reviews-oauth-refresh-button]').textContent = data.refresh;
+	overlay.querySelector('[data-reviews-oauth-cancel-button]').textContent = data.cancel;
+	if (options.id) overlay.setAttribute('data-reviews-oauth-id',options.id);
+	form.setAttribute('data-reviews-oauth-active','true');
+	return overlay;
 }
 
 function reviews__hint(form, active = false) {
@@ -45,6 +113,7 @@ function reviews__reload(form, id) {
 function reviews__poll(form, id, popup = false, count = 0, button = false) {
 	if (!form || !form.isConnected || id == '' || count >= 18) {
 		if (timer.reviews__poll) clearTimeout(timer.reviews__poll);
+		reviews__overlay(form,false);
 		reviews__hint(form,false);
 		if (button) button.disabled = false;
 		return false;
@@ -59,24 +128,19 @@ function reviews__poll(form, id, popup = false, count = 0, button = false) {
 	fiCMS__refresh(false,post,false,{params:['loadwidget=settings','settingsType=pages-reviews']}).then(response => {
 		let data = fiCMS__json(response);
 		let result = data && data.result ? data.result : false;
-		if (result && result.diagnostic) console.log('FICMS_REVIEWS_GOOGLE_STATUS',result.diagnostic);
-		if (result && result.connected == 1 && (!result.diagnostic || result.diagnostic.oauth_error != 1)) {
+		if (result && result.connected == 1) {
 			if (timer.reviews__poll) clearTimeout(timer.reviews__poll);
+			reviews__overlay(form,false);
 			reviews__hint(form,false);
 			reviews__reload(form,id);
 			return;
 		}
-		if (popup && popup.closed) {
-			if (timer.reviews__poll) clearTimeout(timer.reviews__poll);
-			reviews__hint(form,false);
-			if (button) button.disabled = false;
-			return;
-		}
+		if (popup && popup.closed) popup = false;
+		if (timer.reviews__poll) clearTimeout(timer.reviews__poll);
 		timer.reviews__poll = setTimeout(reviews__poll,10000,form,id,popup,count + 1,button);
 	}).catch(() => {
 		if (timer.reviews__poll) clearTimeout(timer.reviews__poll);
-		reviews__hint(form,false);
-		if (button) button.disabled = false;
+		timer.reviews__poll = setTimeout(reviews__poll,10000,form,id,popup,count + 1,button);
 	});
 
 	return true;
@@ -88,30 +152,14 @@ function reviews__connect(event) {
 
 	let button = event.target.closest('[data-load]') || event.target;
 	let form = reviews__form(button);
-	reviews__diagnostic('click',{
-		action:button.getAttribute('data-action') || '',
-		actionid:button.getAttribute('data-actionid') || '',
-		has_form:form ? 1 : 0
-	});
-	if (!form) {
-		reviews__diagnostic('abort_no_form');
-		return false;
-	}
+	if (!form) return false;
 
 	let post = forms__read(button);
-	if (!post) {
-		reviews__diagnostic('abort_form_read_failed');
-		return false;
-	}
+	if (!post) return false;
 	if (!post.has('type')) post.append('type','pages-reviews');
 	if (!post.has('settings')) post.append('settings',true);
 	if (!post.has('action')) post.append('action',button.getAttribute('data-action') || 'save_connect_integration');
 	if (!post.has('id')) post.append('id',button.getAttribute('data-actionid') || post.get('integration_id') || 'new');
-	reviews__diagnostic('request',{
-		action:post.get('action') || '',
-		id:post.get('id') || '',
-		integration_id:post.get('integration_id') || ''
-	});
 
 	let popup = false;
 	try {
@@ -126,22 +174,23 @@ function reviews__connect(event) {
 	fiCMS__refresh(false,post,button,{params:['loadwidget=settings','settingsType=pages-reviews']}).then(response => {
 		let data = fiCMS__json(response);
 		let result = data && data.result ? data.result : false;
-		reviews__diagnostic('response',{result:result});
 		if (!result || result.result !== true || !result.redirect) {
 			button.disabled = false;
+			reviews__overlay(form,false);
 			reviews__hint(form,false);
 			if (popup) popup.close();
-			reviews__diagnostic('abort_no_redirect',{result:result});
 			return;
 		}
+		let id = result.id || (button.getAttribute('data-actionid') || post.get('id') || '');
+		reviews__overlay(form,true,{id:id,button:button});
 		if (popup) popup.location.href = result.redirect;
 		else window.open(result.redirect,'ficmsPopup','popup=yes,width=620,height=780,left=120,top=80,menubar=no,toolbar=no,status=no,scrollbars=yes,resizable=yes');
-		reviews__poll(form,result.id || (button.getAttribute('data-actionid') || ''),popup,0,button);
+		reviews__poll(form,id,popup,0,button);
 	}).catch(() => {
 		button.disabled = false;
+		reviews__overlay(form,false);
 		reviews__hint(form,false);
 		if (popup) popup.close();
-		reviews__diagnostic('request_failed');
 	});
 
 	return false;

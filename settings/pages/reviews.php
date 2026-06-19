@@ -92,7 +92,6 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		if ($reviews['status']['connected'] == 1 && $reviews['status']['provider'] == 'google') {
 			$reviews['status_locations'] = $reviews['instance']->googleLocationChoices($reviews['status']);
 			$reviews['output']['result']['locations'] = $reviews['status_locations'];
-			if (empty($reviews['status_locations']['result']) || $reviews['status_locations']['error'] != '') $reviews['output']['result']['diagnostic'] = ['prefix'=>'FICMS_REVIEWS_GOOGLE_STATUS','connected'=>$reviews['status']['connected'],'ready'=>$reviews['status']['ready'],'location_error'=>$reviews['status_locations']['error'],'oauth_error'=>$reviews['instance']->googleOAuthError($reviews['status_locations']['error'] ?? '') ? 1 : 0];
 		}
 		$_POST['handled'] = true;
 	}
@@ -141,14 +140,17 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 			if ($reviews['status']['connected'] == 1 && $reviews['locations']['result'] && count($reviews['locations']['items']) > 0) {
 				$reviews['location_value'] = json_encode($reviews['integration']['target'],JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 				if (trim((string) ($reviews['integration']['target']['location_name'] ?? '')) == '' && count($reviews['locations']['items']) == 1) $reviews['location_value'] = $reviews['locations']['items'][0]['value'];
-				$reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-google-location','type'=>'form','classes'=>['forms__item'],'form'=>['type'=>'radio','option'=>'integration_google_location','name'=>language__get($user['language'],'_reviews_google_location_name'),'options'=>$reviews['locations']['items'],'value'=>$reviews['location_value']]];
+				$reviews['location_options'] = $reviews['locations']['items'];
+				if (trim((string) ($reviews['integration']['target']['location_name'] ?? '')) == '') array_unshift($reviews['location_options'],['name'=>language__get($user['language'],'_reviews_google_location_select'),'value'=>'','disabled'=>true]);
+				$reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-google-location','type'=>'form','classes'=>['forms__item'],'form'=>['type'=>'select','option'=>'integration_google_location','name'=>language__get($user['language'],'_reviews_google_location_name'),'options'=>$reviews['location_options'],'value'=>$reviews['location_value']]];
 			}
 		}
 		$reviews['connect_label'] = $reviews['integration_id'] != 'new' && $reviews['integration']['provider'] == 'google' && ($reviews['status']['connected'] != 1 || $reviews['location_oauth_error'] == 1) ? language__get($user['language'],$reviews['status']['connected'] == 1 ? '_reviews_integration_reconnect' : '_reviews_integration_connect') : false;
 		$reviews['connect_action'] = $reviews['connect_label'] ? ['load'=>['action'=>'save_connect_integration','id'=>$reviews['integration']['id'],'target'=>'_blank','function'=>'reviews__connect']] : [];
-		$reviews['submit_label'] = $reviews['integration_id'] == 'new' ? language__get($user['language'],'_reviews_integration_connect') : language__get($user['language'],'_settings_form_save');
+		$reviews['submit_label'] = $reviews['integration_id'] == 'new' ? language__get($user['language'],'_reviews_integration_connect') : ($reviews['integration']['provider'] == 'google' && intval($reviews['status']['connected'] ?? 0) == 1 && trim((string) ($reviews['integration']['target']['location_name'] ?? '')) == '' && !empty($reviews['locations']['result']) ? language__get($user['language'],'_reviews_integration_save_location') : language__get($user['language'],'_settings_form_save'));
 		$reviews['submit_action'] = ['load'=>['action'=>$reviews['integration_id'] == 'new' ? 'save_connect_integration' : 'save_integration','id'=>$reviews['integration_id']]];
 		if ($reviews['integration_id'] == 'new') $reviews['submit_action']['load'] = array_merge($reviews['submit_action']['load'],['target'=>'_blank','function'=>'reviews__connect']);
+		$reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-oauth-overlay-data','tag'=>'span','classes'=>['forms__hidden'],'attributes'=>['data-reviews-oauth-provider'=>'Google','data-reviews-oauth-message'=>language__get($user['language'],'_reviews_integration_oauth_overlay'),'data-reviews-oauth-refresh'=>language__get($user['language'],'_reviews_integration_oauth_refresh'),'data-reviews-oauth-cancel'=>language__get($user['language'],'_reviews_integration_oauth_cancel')]];
 		$reviews['output']['lists'] = create__form($settings['form'],$reviews['integration_form'],$reviews['integration_id'] == 'new' ? language__get($user['language'],'_reviews_integration_new') : language__get_parsed($user['language'],'_reviews_integration_edit',['label'=>$reviews['integration']['label']]),$reviews['submit_label'],$reviews['submit_action'],[],$reviews['connect_label'],$reviews['connect_action']);
 		$reviews['output']['result'] = ['result'=>true];
 		$_POST['handled'] = true;
@@ -225,17 +227,9 @@ foreach ($reviews['admin']['rows'] as $reviews['entry']) {
 	$reviews['subtitle'] = $reviews['provider_text'].' · '.$reviews['rating_text'].' · '.$reviews['state'].' · '.format__date_relative(intval($reviews['entry']['date'] ?? $_SERVER['now']),'date',$user['language']);
 	$reviews['title'] = trim((string) $reviews['entry']['author']);
 	if ($reviews['title'] == '') $reviews['title'] = language__get($user['language'],'_reviews_no_author');
-	$reviews['preview'] = trim((string) $reviews['entry']['text']);
-	$reviews['row_items'] = [
-		['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-text','tag'=>'font','classes'=>['forms__item'],'description'=>htmlspecialchars(mb_substr($reviews['preview'],0,220),ENT_QUOTES,'UTF-8')],
-		['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-edit','description'=>language__get($user['language'],'_reviews_edit'),'actions'=>['load'=>['id'=>$reviews['entry']['id'],'form'=>true]]]
-	];
-	if (intval($reviews['entry']['read_only'] ?? 0) != 1) $reviews['row_items'][] = ['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-delete','tag'=>'li','items'=>[
-		['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-delete-button','tag'=>'button','classes'=>['system-button'],'attributes'=>['type'=>'button','data-confirmation'=>language__get($user['language'],'_ui_confirm_delete')],'description'=>language__get($user['language'],'_reviews_delete'),'actions'=>['load'=>['action'=>'delete','id'=>$reviews['entry']['id']]]]
-	]];
-	$reviews['items'][] = ['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-row','tag'=>'li','items'=>[
-		create__dropdown($settings['key'].'-'.$reviews['entry']['id'].'-dropdown',$reviews['title'],create__list($settings['key'].'-'.$reviews['entry']['id'].'-list',$reviews['row_items'],['clear'=>true]),['subtitle'=>$reviews['subtitle'],'image'=>PAGEPATH.'/media/language/'.(in_array('all',$reviews['entry']['lid'],true) ? 'all' : $reviews['entry']['lid'][0]).'.png'])
-	]];
+	$reviews['item'] = ['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-row','tag'=>'li','description'=>$reviews['title'],'subtitle'=>$reviews['subtitle'],'image'=>PAGEPATH.'/media/language/'.(in_array('all',$reviews['entry']['lid'],true) ? 'all' : $reviews['entry']['lid'][0]).'.png','actions'=>['load'=>['id'=>$reviews['entry']['id'],'form'=>true]]];
+	if (intval($reviews['entry']['read_only'] ?? 0) != 1) $reviews['item']['actions']['delete'] = ['id'=>$reviews['entry']['id'],'action'=>'delete'];
+	$reviews['items'][] = $reviews['item'];
 }
 
 if (empty($reviews['items'])) $reviews['items'][] = ['id'=>$settings['key'].'-empty','tag'=>'li','description'=>language__get($user['language'],'_sort_no_result'),'attributes'=>['data-noresult'=>'true']];
@@ -249,21 +243,36 @@ foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 	$reviews['provider_label'] = $reviews['instance']->providerDefinitions()[$reviews['integration']['provider']]['name'] ?? ucfirst($reviews['integration']['provider']);
 	$reviews['provider_logo'] = $reviews['instance']->getProviderLogo($reviews['integration']['provider']);
 	$reviews['status_oauth_error'] = $reviews['integration']['provider'] == 'google' && $reviews['instance']->googleOAuthError($reviews['status']['last_error'] ?? '') ? 1 : 0;
-	$reviews['subtitle'] = $reviews['provider_label'].' · '.($reviews['status']['connected'] == 1 ? language__get($user['language'],'_reviews_integration_connected') : language__get($user['language'],'_reviews_integration_not_connected'));
-	if ($reviews['status_oauth_error'] == 1) $reviews['subtitle'] .= ' · '.language__get($user['language'],'_reviews_integration_reconnect_required');
-	if (trim((string) ($reviews['status']['target']['location_title'] ?? '')) != '') $reviews['subtitle'] .= ' · '.$reviews['status']['target']['location_title'];
+	$reviews['status_error'] = ($reviews['status_oauth_error'] == 1 || ($reviews['status']['last_error'] != '' && $reviews['status']['last_error'] != 'google_location_missing')) ? 1 : 0;
+	$reviews['location_title'] = trim((string) ($reviews['status']['target']['location_title'] ?? ''));
+	$reviews['subtitle'] = $reviews['location_title'] != '' && $reviews['status']['ready'] == 1 ? $reviews['location_title'] : '';
+	$reviews['notify'] = false;
+	if ($reviews['status_error'] == 1) {
+		$reviews['subtitle'] = language__get($user['language'],'_reviews_integration_status_error');
+		$reviews['notify'] = 'error';
+	} else if ($reviews['status']['connected'] != 1) {
+		$reviews['subtitle'] = language__get($user['language'],'_reviews_integration_connect_google');
+		$reviews['notify'] = 'warning';
+	} else if ($reviews['status']['ready'] != 1 || $reviews['location_title'] == '') {
+		$reviews['subtitle'] = language__get($user['language'],'_reviews_integration_select_location');
+		$reviews['notify'] = 'warning';
+	}
+	$reviews['last_sync'] = $reviews['status']['ready'] == 1 && $reviews['status']['last_sync'] > 0 ? format__date_relative($reviews['status']['last_sync'],'relative',$user['language']) : language__get($user['language'],'_never');
 	$reviews['details'] = [
 		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-edit','description'=>language__get($user['language'],'_reviews_integration_edit_link'),'actions'=>['load'=>['id'=>'integration-'.$reviews['integration']['id'],'form'=>true]]],
-		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-result','description'=>language__get($user['language'],'_reviews_integration_last_result'),'subtitle'=>language__get_parsed($user['language'],'_reviews_integration_sync_result',['count'=>$reviews['status']['last_count'],'imported'=>$reviews['status']['last_imported'],'updated'=>$reviews['status']['last_updated']])],
-		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-delete','tag'=>'li','items'=>[
-			['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-delete-button','tag'=>'button','classes'=>['system-button'],'attributes'=>['type'=>'button','data-confirmation'=>language__get($user['language'],'_ui_confirm_delete')],'description'=>language__get($user['language'],'_reviews_integration_delete'),'actions'=>['load'=>['action'=>'delete_integration','id'=>$reviews['integration']['id']]]]
-		]]
+		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-sync-info','description'=>language__get($user['language'],'_reviews_integration_last_sync'),'subtitle'=>$reviews['last_sync']]
 	];
 	if ($reviews['status']['connected'] != 1 || $reviews['status_oauth_error'] == 1) array_splice($reviews['details'],1,0,[['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-connect','description'=>language__get($user['language'],$reviews['status']['connected'] == 1 ? '_reviews_integration_reconnect' : '_reviews_integration_connect'),'actions'=>['load'=>['action'=>'connect_integration','id'=>$reviews['integration']['id'],'target'=>'_blank']]]]);
-	if ($reviews['status']['ready'] == 1) array_splice($reviews['details'],1,0,[['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-sync','description'=>language__get($user['language'],'_reviews_integration_sync'),'actions'=>['load'=>['action'=>'sync_integration','id'=>$reviews['integration']['id']]]]]);
 	if ($reviews['status']['last_error'] != '' && ($reviews['status']['last_error'] != 'google_location_missing' || $reviews['status']['ready'] == 1)) $reviews['details'][] = ['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-error','description'=>language__get($user['language'],'_reviews_integration_last_error'),'subtitle'=>htmlspecialchars($reviews['status']['last_error'],ENT_QUOTES,'UTF-8')];
+	$reviews['details'][] = ['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-delete','tag'=>'li','clear'=>true,'items'=>[
+		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-delete-button','tag'=>'button','classes'=>['system-button'],'attributes'=>['type'=>'button','data-confirmation'=>language__get($user['language'],'_ui_confirm_delete')],'description'=>language__get($user['language'],'_reviews_integration_delete'),'actions'=>['load'=>['action'=>'delete_integration','id'=>$reviews['integration']['id']]]]
+	]];
+	$reviews['actions'] = [];
+	if ($reviews['status']['ready'] == 1) $reviews['actions']['icons']['sync'] = ['systemicon'=>'refresh','action'=>'sync_integration','id'=>$reviews['integration']['id'],'title'=>language__get($user['language'],'_reviews_integration_sync')];
+	$reviews['attributes'] = ['class'=>'system-next'];
+	if ($reviews['notify'] !== false) $reviews['attributes']['data-notify'] = $reviews['notify'];
 	$reviews['integration_items'][] = ['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-row','tag'=>'li','items'=>[
-		create__dropdown($settings['key'].'-'.$reviews['integration']['id'].'-dropdown',$reviews['integration']['label'],create__list($settings['key'].'-'.$reviews['integration']['id'].'-list',$reviews['details'],['clear'=>true]),array_merge(['subtitle'=>$reviews['subtitle'],'attributes'=>['class'=>'system-next']],$reviews['provider_logo'] != '' ? ['image'=>$reviews['provider_logo']] : []))
+		create__dropdown($settings['key'].'-'.$reviews['integration']['id'].'-dropdown',$reviews['integration']['label'],create__list($settings['key'].'-'.$reviews['integration']['id'].'-list',$reviews['details'],['clear'=>true]),array_merge(['subtitle'=>$reviews['subtitle'],'attributes'=>$reviews['attributes'],'actions'=>$reviews['actions']],$reviews['provider_logo'] != '' ? ['image'=>$reviews['provider_logo']] : []))
 	]];
 }
 $reviews['integration_items'][] = ['id'=>$settings['key'].'-integration-new','tag'=>'li','description'=>language__get($user['language'],'_reviews_integration_new'),'classes'=>['system-next'],'actions'=>['load'=>['id'=>'integration-new','form'=>true]]];
