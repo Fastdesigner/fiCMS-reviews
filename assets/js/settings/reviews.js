@@ -1,6 +1,11 @@
 function reviews__form(obj) {
 	let elem = (obj instanceof Event) ? obj.target : obj;
-	return elem ? elem.closest('[data-setting="pages-reviews"] form') : false;
+	if (!elem) return false;
+	return elem.closest('form[data-setting="pages-reviews"]') || elem.closest('[data-setting="pages-reviews"] form') || elem.closest('form');
+}
+
+function reviews__diagnostic(stage, data = {}) {
+	console.log('FICMS_REVIEWS_RECONNECT',Object.assign({stage:stage},data));
 }
 
 function reviews__state(form) {
@@ -21,6 +26,11 @@ function reviews__init(form) {
 	if (connected) reviews__hint(form,false);
 	form.querySelectorAll('button[data-action="save_integration"]').forEach(button => {
 		button.disabled = !connected && state.getAttribute('data-reviews-provider') == 'google';
+	});
+	form.querySelectorAll('button[data-action="save_connect_integration"]').forEach(button => {
+		if (button.getAttribute('data-reviews-connect-bound') == '1') return;
+		button.setAttribute('data-reviews-connect-bound','1');
+		button.addEventListener('click',reviews__connect);
 	});
 	return true;
 }
@@ -78,14 +88,30 @@ function reviews__connect(event) {
 
 	let button = event.target.closest('[data-load]') || event.target;
 	let form = reviews__form(button);
-	if (!form) return false;
+	reviews__diagnostic('click',{
+		action:button.getAttribute('data-action') || '',
+		actionid:button.getAttribute('data-actionid') || '',
+		has_form:form ? 1 : 0
+	});
+	if (!form) {
+		reviews__diagnostic('abort_no_form');
+		return false;
+	}
 
 	let post = forms__read(button);
-	if (!post) return false;
+	if (!post) {
+		reviews__diagnostic('abort_form_read_failed');
+		return false;
+	}
 	if (!post.has('type')) post.append('type','pages-reviews');
 	if (!post.has('settings')) post.append('settings',true);
 	if (!post.has('action')) post.append('action',button.getAttribute('data-action') || 'save_connect_integration');
-	if (!post.has('id')) post.append('id',button.getAttribute('data-actionid') || 'new');
+	if (!post.has('id')) post.append('id',button.getAttribute('data-actionid') || post.get('integration_id') || 'new');
+	reviews__diagnostic('request',{
+		action:post.get('action') || '',
+		id:post.get('id') || '',
+		integration_id:post.get('integration_id') || ''
+	});
 
 	let popup = false;
 	try {
@@ -100,10 +126,12 @@ function reviews__connect(event) {
 	fiCMS__refresh(false,post,button,{params:['loadwidget=settings','settingsType=pages-reviews']}).then(response => {
 		let data = fiCMS__json(response);
 		let result = data && data.result ? data.result : false;
+		reviews__diagnostic('response',{result:result});
 		if (!result || result.result !== true || !result.redirect) {
 			button.disabled = false;
 			reviews__hint(form,false);
 			if (popup) popup.close();
+			reviews__diagnostic('abort_no_redirect',{result:result});
 			return;
 		}
 		if (popup) popup.location.href = result.redirect;
@@ -113,6 +141,7 @@ function reviews__connect(event) {
 		button.disabled = false;
 		reviews__hint(form,false);
 		if (popup) popup.close();
+		reviews__diagnostic('request_failed');
 	});
 
 	return false;
