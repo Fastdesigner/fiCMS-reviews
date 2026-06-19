@@ -40,6 +40,10 @@ class FiCMSReviews {
 		return $this->data['reviews'][$id] ?? $this->blank($id);
 	}
 
+	public function display($id, $language) {
+		return $this->row($id,$this->find($id),$language);
+	}
+
 	public function blank($id = 'new') {
 		return ['id'=>$id,'author'=>[],'source'=>[],'rating'=>5,'text'=>[],'lid'=>['all'],'date'=>intval($_SERVER['now'] ?? time()),'published'=>($id == 'new' ? 1 : 0),'featured'=>0,'provider'=>'local','source_type'=>'local','external_id'=>'','external_updated'=>0,'imported'=>0,'read_only'=>0];
 	}
@@ -48,6 +52,16 @@ class FiCMSReviews {
 		$id = trim((string) $id);
 		if ($id == '' || !isset($this->data['reviews'][$id])) return false;
 		unset($this->data['reviews'][$id]);
+		$this->data['updated'] = intval($_SERVER['now'] ?? time());
+		return $this->write();
+	}
+
+	public function setPublished($id, $published) {
+		$id = trim((string) $id);
+		if ($id == '' || !isset($this->data['reviews'][$id])) return false;
+		$this->data['reviews'][$id] = $this->normalizeEntry($id,$this->data['reviews'][$id]);
+		$this->data['reviews'][$id]['published'] = intval($published) == 1 ? 1 : 0;
+		$this->data['reviews'][$id]['updated'] = intval($_SERVER['now'] ?? time());
 		$this->data['updated'] = intval($_SERVER['now'] ?? time());
 		return $this->write();
 	}
@@ -444,6 +458,7 @@ class FiCMSReviews {
 		$entry['author_initials'] = $this->initials($entry['author']);
 		$entry['source'] = $this->resolveText($entry['source'],$language);
 		$entry['text'] = $this->resolveText($entry['text'],$language);
+		if ($entry['provider'] == 'google') $entry['text'] = $this->cleanGoogleTranslation($entry['text']);
 		$entry['sort_id'] = $id;
 		$entry['search'] = trim($id.' '.$entry['author'].' '.$entry['source'].' '.$entry['text'].' '.$entry['provider']);
 		return $entry;
@@ -484,6 +499,14 @@ class FiCMSReviews {
 		if (isset($value[$this->defaultLanguage]) && trim((string) $value[$this->defaultLanguage]) !== '') return trim((string) $value[$this->defaultLanguage]);
 		foreach ($value as $text) if (trim((string) $text) !== '') return trim((string) $text);
 		return '';
+	}
+
+	private function cleanGoogleTranslation($text) {
+		$text = trim(str_replace(["\r\n","\r"],"\n",(string) $text));
+		if ($text == '' || stripos($text,'Translated by Google') === false) return $text;
+		if (preg_match('/^(.*?)\n*\s*\(Translated by Google\).*$/su',$text,$match) && trim($match[1]) != '') return trim($match[1]);
+		if (preg_match('/\(Original\)\s*(.*)$/su',$text,$match) && trim($match[1]) != '') return trim($match[1]);
+		return trim(preg_replace('/^\s*\(Translated by Google\)\s*$/mi','',$text));
 	}
 
 	private function normalizeLanguages($value, $strict) {
@@ -673,7 +696,7 @@ class FiCMSReviews {
 			'author'=>[$this->defaultLanguage=>trim((string) ($review['reviewer']['displayName'] ?? ''))],
 			'source'=>[$this->defaultLanguage=>$integration['target']['location_title'] != '' ? $integration['target']['location_title'] : $integration['label']],
 			'rating'=>$this->googleRating($review['starRating'] ?? 5),
-			'text'=>[$this->defaultLanguage=>trim((string) ($review['comment'] ?? ''))],
+			'text'=>[$this->defaultLanguage=>$this->cleanGoogleTranslation($review['comment'] ?? '')],
 			'lid'=>$existing['lid'] ?? ['all'],
 			'date'=>$this->googleTime($review['createTime'] ?? ''),
 			'published'=>intval($existing['published'] ?? 1),

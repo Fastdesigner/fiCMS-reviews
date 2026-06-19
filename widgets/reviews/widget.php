@@ -66,6 +66,7 @@ $reviews['rows'] = $reviews['instance']->widget([
 
 foreach ($reviews['rows'] as $reviews['entry']) {
 	$reviews['rating'] = max(1,min(5,intval($reviews['entry']['rating'] ?? 0)));
+	$reviews['provider_logo'] = $reviews['instance']->getProviderLogo($reviews['entry']['provider'] ?? '');
 	$reviews['item'] = [
 		'id'=>htmlspecialchars(trim((string) ($reviews['entry']['id'] ?? '')),ENT_QUOTES,'UTF-8'),
 		'author'=>htmlspecialchars(trim((string) ($reviews['entry']['author'] ?? '')),ENT_QUOTES,'UTF-8'),
@@ -80,10 +81,13 @@ foreach ($reviews['rows'] as $reviews['entry']) {
 		'datetime'=>date('Y-m-d',intval($reviews['entry']['date'] ?? $_SERVER['now'])),
 		'featured'=>intval($reviews['entry']['featured'] ?? 0),
 		'provider'=>htmlspecialchars(trim((string) ($reviews['entry']['provider'] ?? 'local')),ENT_QUOTES,'UTF-8'),
+		'provider_logo'=>htmlspecialchars($reviews['provider_logo'],ENT_QUOTES,'UTF-8'),
 		'has_author'=>trim((string) ($reviews['entry']['author'] ?? '')) !== '' ? 1 : 0,
 		'has_source'=>trim((string) ($reviews['entry']['source'] ?? '')) !== '' ? 1 : 0,
+		'has_provider_logo'=>$reviews['provider_logo'] != '' ? 1 : 0,
 		'render_rating'=>$reviews['options']['show_rating'],
-		'render_source'=>($reviews['options']['show_source'] == 1 && trim((string) ($reviews['entry']['source'] ?? '')) !== '') ? 1 : 0,
+		'render_source'=>($reviews['options']['show_source'] == 1 && $reviews['provider_logo'] == '' && trim((string) ($reviews['entry']['source'] ?? '')) !== '') ? 1 : 0,
+		'render_provider_logo'=>$reviews['provider_logo'] != '' ? 1 : 0,
 		'render_date'=>$reviews['options']['show_date']
 	];
 	if ($reviews['selected'] != 'summary' && $reviews['structure'][$reviews['selected']] !== '') {

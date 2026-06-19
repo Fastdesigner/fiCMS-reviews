@@ -60,6 +60,11 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		$_POST['handled'] = true;
 	}
 
+	if (!isset($_POST['handled']) && $reviews['action'] == 'ac') {
+		$reviews['output']['result'] = ['result'=>$reviews['instance']->setPublished($reviews['id'],$_POST['value'] ?? 0)];
+		$_POST['handled'] = true;
+	}
+
 	if (!isset($_POST['handled']) && $reviews['action'] == 'delete_integration') {
 		$reviews['output']['result'] = ['result'=>$reviews['instance']->deleteIntegration($reviews['integration_id'])];
 		$_POST['handled'] = true;
@@ -165,6 +170,7 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		$reviews['formitems']['featured']['checked'] = intval($reviews['entry']['featured'] ?? 0) == 1;
 		$reviews['form'] = [];
 		if (intval($reviews['entry']['read_only'] ?? 0) == 1 && ($reviews['entry']['provider'] ?? 'local') != 'local') {
+			$reviews['entry'] = $reviews['instance']->display($reviews['entry']['id'],$user['language']);
 			$reviews['form'][] = ['id'=>$settings['key'].'-form-provider','tag'=>'font','classes'=>['forms__item'],'description'=>htmlspecialchars(ucfirst($reviews['entry']['provider']).' · '.$reviews['entry']['author'].' · '.$reviews['entry']['text'],ENT_QUOTES,'UTF-8')];
 			$reviews['form'][] = ['id'=>$settings['key'].'-form-lid','classes'=>['forms__item'],'type'=>'form','form'=>$reviews['formitems']['lid']];
 			$reviews['form'][] = ['id'=>$settings['key'].'-form-published','classes'=>['forms__item'],'type'=>'form','form'=>$reviews['formitems']['published']];
@@ -228,6 +234,7 @@ foreach ($reviews['admin']['rows'] as $reviews['entry']) {
 	$reviews['title'] = trim((string) $reviews['entry']['author']);
 	if ($reviews['title'] == '') $reviews['title'] = language__get($user['language'],'_reviews_no_author');
 	$reviews['item'] = ['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-row','tag'=>'li','description'=>$reviews['title'],'subtitle'=>$reviews['subtitle'],'image'=>PAGEPATH.'/media/language/'.(in_array('all',$reviews['entry']['lid'],true) ? 'all' : $reviews['entry']['lid'][0]).'.png','actions'=>['load'=>['id'=>$reviews['entry']['id'],'form'=>true]]];
+	$reviews['item']['actions']['ac'] = ['id'=>$reviews['entry']['id'],'action'=>'ac','name'=>$settings['key'].'-'.$reviews['entry']['id'],'checked'=>!empty($reviews['entry']['published']),'dropdown_sync'=>false];
 	if (intval($reviews['entry']['read_only'] ?? 0) != 1) $reviews['item']['actions']['delete'] = ['id'=>$reviews['entry']['id'],'action'=>'delete'];
 	$reviews['items'][] = $reviews['item'];
 }
@@ -264,9 +271,7 @@ foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 	];
 	if ($reviews['status']['connected'] != 1 || $reviews['status_oauth_error'] == 1) array_splice($reviews['details'],1,0,[['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-connect','description'=>language__get($user['language'],$reviews['status']['connected'] == 1 ? '_reviews_integration_reconnect' : '_reviews_integration_connect'),'actions'=>['load'=>['action'=>'connect_integration','id'=>$reviews['integration']['id'],'target'=>'_blank']]]]);
 	if ($reviews['status']['last_error'] != '' && ($reviews['status']['last_error'] != 'google_location_missing' || $reviews['status']['ready'] == 1)) $reviews['details'][] = ['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-error','description'=>language__get($user['language'],'_reviews_integration_last_error'),'subtitle'=>htmlspecialchars($reviews['status']['last_error'],ENT_QUOTES,'UTF-8')];
-	$reviews['details'][] = ['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-delete','tag'=>'li','clear'=>true,'items'=>[
-		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-delete-button','tag'=>'button','classes'=>['system-button'],'attributes'=>['type'=>'button','data-confirmation'=>language__get($user['language'],'_ui_confirm_delete')],'description'=>language__get($user['language'],'_reviews_integration_delete'),'actions'=>['load'=>['action'=>'delete_integration','id'=>$reviews['integration']['id']]]]
-	]];
+	$reviews['details'][] = ['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-delete','tag'=>'button','classes'=>['system-button'],'clear'=>true,'attributes'=>['type'=>'button','data-confirmation'=>language__get($user['language'],'_ui_confirm_delete')],'description'=>language__get($user['language'],'_reviews_integration_delete'),'actions'=>['load'=>['action'=>'delete_integration','id'=>$reviews['integration']['id']]]];
 	$reviews['actions'] = [];
 	if ($reviews['status']['ready'] == 1) $reviews['actions']['icons']['sync'] = ['systemicon'=>'refresh','action'=>'sync_integration','id'=>$reviews['integration']['id'],'title'=>language__get($user['language'],'_reviews_integration_sync')];
 	$reviews['attributes'] = ['class'=>'system-next'];
