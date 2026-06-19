@@ -54,6 +54,37 @@ $reviews['structure'] = parser__file($reviews['structure_file']);
 foreach (['list','slider','summary'] as $reviews['section']) if (!isset($reviews['structure'][$reviews['section']])) $reviews['structure'][$reviews['section']] = '';
 $reviews['selected'] = ($reviews['layout'] != 'list' && $reviews['structure'][$reviews['layout']] == '') ? 'list' : $reviews['layout'];
 
+// Fragment-Cache: Output hängt an Block-Optionen (block:<id>), Sprache (Scope) und den
+// Review-Quelldateien (data/reviews.json + integrations.json, vom Sync neu geschrieben → mtime).
+// Cache-Hit überspringt den Daten-Load + Render komplett.
+$reviews['block_id'] = (int) ($service['cache']['context']['block_id'] ?? ($reviews['block']['id'] ?? 0));
+$reviews['definition'] = [
+	'type'=>'fragment',
+	'scope'=>[
+		'widget'=>$service['cache']['context']['widget'] ?? ($service['temp']['data']['wert'] ?? 'reviews'),
+		'block_id'=>$reviews['block_id'],
+		'lid'=>$_SESSION['language']
+	],
+	'watch'=>[
+		'versions'=>($reviews['block_id'] > 0 ? ['block:'.$reviews['block_id']] : []),
+		'values'=>[],
+		'files'=>array_values(array_filter([__FILE__,$reviews['structure_file'],$reviews['instance']->dataFile(),$reviews['instance']->integrationsFile()]))
+	],
+	'policy'=>['cacheable'=>($reviews['block_id'] > 0 && (!isset($service['cache']['policy']['cacheable']) || (int) $service['cache']['policy']['cacheable'] === 1)) ? 1 : 0],
+	'meta'=>[]
+];
+$reviews['entry'] = false;
+if ($reviews['definition']['policy']['cacheable'] == 1) {
+	$reviews['entry'] = $_SERVER['CacheDirector']->entry($reviews['definition']);
+	$reviews['entry']->setDefinition($reviews['definition']);
+	$reviews['cached'] = $reviews['entry']->get();
+	if ($reviews['cached'] !== false) {
+		$service['content'] = $reviews['cached'];
+		unset($reviews);
+		return;
+	}
+}
+
 $reviews['rows'] = $reviews['instance']->widget([
 	'limit'=>$reviews['limit'],
 	'min_rating'=>$reviews['min_rating'],
@@ -119,5 +150,6 @@ if (count($reviews['rows']) > 0) {
 	$reviews['content'] = parser__replace($reviews['frame'],$reviews['replace']);
 }
 $service['content'] = $reviews['content'];
+if ($reviews['entry']) $reviews['entry']->set($service['content'],$reviews['definition']['meta']);
 
 unset($reviews);
