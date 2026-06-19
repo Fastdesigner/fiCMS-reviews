@@ -89,7 +89,11 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 	if (!isset($_POST['handled']) && $reviews['action'] == 'integration_status') {
 		$reviews['status'] = $reviews['instance']->integrationStatus($reviews['integration_id']);
 		$reviews['output']['result'] = ['result'=>true,'id'=>$reviews['integration_id'],'connected'=>$reviews['status']['connected'],'provider'=>$reviews['status']['provider'],'ready'=>$reviews['status']['ready']];
-		if ($reviews['status']['connected'] == 1 && $reviews['status']['provider'] == 'google') $reviews['output']['result']['locations'] = $reviews['instance']->googleLocationChoices($reviews['status']);
+		if ($reviews['status']['connected'] == 1 && $reviews['status']['provider'] == 'google') {
+			$reviews['status_locations'] = $reviews['instance']->googleLocationChoices($reviews['status']);
+			$reviews['output']['result']['locations'] = $reviews['status_locations'];
+			if (empty($reviews['status_locations']['result']) || $reviews['status_locations']['error'] != '') $reviews['output']['result']['diagnostic'] = ['prefix'=>'FICMS_REVIEWS_GOOGLE_STATUS','connected'=>$reviews['status']['connected'],'ready'=>$reviews['status']['ready'],'location_error'=>$reviews['status_locations']['error'],'oauth_error'=>$reviews['instance']->googleOAuthError($reviews['status_locations']['error'] ?? '') ? 1 : 0];
+		}
 		$_POST['handled'] = true;
 	}
 
@@ -122,7 +126,7 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 			$reviews['locations'] = ['result'=>false,'items'=>[],'error'=>''];
 			if ($reviews['status']['connected'] == 1) $reviews['locations'] = $reviews['instance']->googleLocationChoices($reviews['integration']);
 			$reviews['location_error'] = strtolower(trim((string) ($reviews['locations']['error'] ?? '')));
-			$reviews['location_oauth_error'] = $reviews['location_error'] != '' && (in_array($reviews['location_error'],['oauth_unavailable','refresh_token_missing','access_token_missing','account_unavailable','provider_unavailable','provider_or_client_unavailable'],true) || strpos($reviews['location_error'],'bridge_refresh') !== false || strpos($reviews['location_error'],'refresh_http') !== false || strpos($reviews['location_error'],'invalid authentication credentials') !== false) ? 1 : 0;
+			$reviews['location_oauth_error'] = $reviews['instance']->googleOAuthError($reviews['location_error']) ? 1 : 0;
 			$reviews['connected_subtitle'] = $reviews['status']['connected'] == 1 ? language__get($user['language'],'_option_yes') : language__get($user['language'],'_option_no');
 			if ($reviews['location_oauth_error'] == 1) $reviews['connected_subtitle'] .= ' · '.language__get($user['language'],'_reviews_integration_reconnect_required');
 			$reviews['status_items'] = [
@@ -244,7 +248,9 @@ foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 	$reviews['status'] = $reviews['instance']->integrationStatus($reviews['integration']['id']);
 	$reviews['provider_label'] = $reviews['instance']->providerDefinitions()[$reviews['integration']['provider']]['name'] ?? ucfirst($reviews['integration']['provider']);
 	$reviews['provider_logo'] = $reviews['instance']->getProviderLogo($reviews['integration']['provider']);
+	$reviews['status_oauth_error'] = $reviews['integration']['provider'] == 'google' && $reviews['instance']->googleOAuthError($reviews['status']['last_error'] ?? '') ? 1 : 0;
 	$reviews['subtitle'] = $reviews['provider_label'].' · '.($reviews['status']['connected'] == 1 ? language__get($user['language'],'_reviews_integration_connected') : language__get($user['language'],'_reviews_integration_not_connected'));
+	if ($reviews['status_oauth_error'] == 1) $reviews['subtitle'] .= ' · '.language__get($user['language'],'_reviews_integration_reconnect_required');
 	if (trim((string) ($reviews['status']['target']['location_title'] ?? '')) != '') $reviews['subtitle'] .= ' · '.$reviews['status']['target']['location_title'];
 	$reviews['details'] = [
 		['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-edit','description'=>language__get($user['language'],'_reviews_integration_edit_link'),'actions'=>['load'=>['id'=>'integration-'.$reviews['integration']['id'],'form'=>true]]],
@@ -253,7 +259,7 @@ foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 			['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-delete-button','tag'=>'button','classes'=>['system-button'],'attributes'=>['type'=>'button','data-confirmation'=>language__get($user['language'],'_ui_confirm_delete')],'description'=>language__get($user['language'],'_reviews_integration_delete'),'actions'=>['load'=>['action'=>'delete_integration','id'=>$reviews['integration']['id']]]]
 		]]
 	];
-	if ($reviews['status']['connected'] != 1) array_splice($reviews['details'],1,0,[['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-connect','description'=>language__get($user['language'],'_reviews_integration_connect'),'actions'=>['load'=>['action'=>'connect_integration','id'=>$reviews['integration']['id'],'target'=>'_blank']]]]);
+	if ($reviews['status']['connected'] != 1 || $reviews['status_oauth_error'] == 1) array_splice($reviews['details'],1,0,[['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-connect','description'=>language__get($user['language'],$reviews['status']['connected'] == 1 ? '_reviews_integration_reconnect' : '_reviews_integration_connect'),'actions'=>['load'=>['action'=>'connect_integration','id'=>$reviews['integration']['id'],'target'=>'_blank']]]]);
 	if ($reviews['status']['ready'] == 1) array_splice($reviews['details'],1,0,[['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-sync','description'=>language__get($user['language'],'_reviews_integration_sync'),'actions'=>['load'=>['action'=>'sync_integration','id'=>$reviews['integration']['id']]]]]);
 	if ($reviews['status']['last_error'] != '' && ($reviews['status']['last_error'] != 'google_location_missing' || $reviews['status']['ready'] == 1)) $reviews['details'][] = ['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-error','description'=>language__get($user['language'],'_reviews_integration_last_error'),'subtitle'=>htmlspecialchars($reviews['status']['last_error'],ENT_QUOTES,'UTF-8')];
 	$reviews['integration_items'][] = ['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-row','tag'=>'li','items'=>[

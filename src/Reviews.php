@@ -253,6 +253,18 @@ class FiCMSReviews {
 		return ['result'=>true,'items'=>$choices,'error'=>''];
 	}
 
+	public function googleOAuthError($error) {
+		$error = strtolower(trim((string) $error));
+		if ($error == '') return false;
+		foreach (['oauth_unavailable','refresh_token_missing','access_token_missing','account_unavailable','provider_unavailable','provider_or_client_unavailable','invalid_grant','invalid_client','unauthorized_client','access_denied'] as $needle) {
+			if ($error == $needle || strpos($error,$needle.':') === 0) return true;
+		}
+		foreach (['bridge_refresh','refresh_http','invalid authentication credentials'] as $needle) {
+			if (strpos($error,$needle) !== false) return true;
+		}
+		return false;
+	}
+
 	public function forceSyncIntegration($id) {
 		$integration = $this->integration($id);
 		$this->deleteTimer('reviews_sync_'.$integration['id']);

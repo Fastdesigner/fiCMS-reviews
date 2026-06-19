@@ -49,7 +49,8 @@ function reviews__poll(form, id, popup = false, count = 0, button = false) {
 	fiCMS__refresh(false,post,false,{params:['loadwidget=settings','settingsType=pages-reviews']}).then(response => {
 		let data = fiCMS__json(response);
 		let result = data && data.result ? data.result : false;
-		if (result && result.connected == 1) {
+		if (result && result.diagnostic) console.log('FICMS_REVIEWS_GOOGLE_STATUS',result.diagnostic);
+		if (result && result.connected == 1 && (!result.diagnostic || result.diagnostic.oauth_error != 1)) {
 			if (timer.reviews__poll) clearTimeout(timer.reviews__poll);
 			reviews__hint(form,false);
 			reviews__reload(form,id);
