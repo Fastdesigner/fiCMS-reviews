@@ -14,13 +14,14 @@ $reviews_options = [
 	'summary_modes'=>[],
 	'sorts'=>['featured','date','rating'],
 	'fields'=>[
+		'widgetvalue'=>['type'=>'hidden','default'=>'','dynamic_name'=>'_option_widgetvalue','include'=>true,'dependencies'=>['widget'=>['disable'=>['reviews','review']]]],
 		'reviews_summary_mode'=>['type'=>'select','default'=>'none','dynamic_name'=>'_reviews_widget_summary_mode','options'=>'summary_modes'],
 		'reviews_show_items'=>['type'=>'checkbox','default'=>1,'dynamic_name'=>'_reviews_widget_show_items'],
 		'reviews_language'=>['type'=>'multipicker','default'=>['all'],'dynamic_name'=>'_reviews_widget_language','attributes'=>['data-list'=>'installed-languages','data-all'=>'true','data-exact'=>'true']],
 		'reviews_provider'=>['type'=>'multipicker','default'=>['all'],'dynamic_name'=>'_reviews_widget_provider','attributes'=>['data-list'=>'reviews-providers','data-all'=>'true','data-exact'=>'true']],
 		'reviews_layout'=>['type'=>'datalist','default'=>'list','dynamic_name'=>'_reviews_widget_layout','attributes'=>['data-list'=>'reviews-layouts','data-exact'=>'true'],'dependencies'=>['reviews_show_items'=>['enable'=>['1']]]],
 		'widgetnum'=>['type'=>'number','default'=>6,'dynamic_name'=>'_reviews_widget_limit','attributes'=>['min'=>1,'max'=>24],'dependencies'=>['reviews_show_items'=>['enable'=>['1']]]],
-		'widgetvalue'=>['type'=>'select','default'=>1,'dynamic_name'=>'_reviews_widget_min_rating','options'=>'ratings','dependencies'=>['reviews_show_items'=>['enable'=>['1']]]],
+		'reviews_min_rating'=>['type'=>'select','default'=>1,'dynamic_name'=>'_reviews_widget_min_rating','options'=>'ratings','dependencies'=>['reviews_show_items'=>['enable'=>['1']]]],
 		'reviews_sort'=>['type'=>'toggle','default'=>'featured','dynamic_name'=>'_reviews_widget_sort','direction'=>'reviews_sort_dir','direction_default'=>'DESC','options'=>'sorts','dependencies'=>['reviews_show_items'=>['enable'=>['1']]]],
 		'reviews_featured'=>['type'=>'checkbox','default'=>0,'dynamic_name'=>'_reviews_widget_featured','dependencies'=>['reviews_show_items'=>['enable'=>['1']]]],
 		'show_rating'=>['type'=>'checkbox','default'=>1,'dynamic_name'=>'_reviews_widget_show_rating','dependencies'=>['reviews_show_items'=>['enable'=>['1']]]],
@@ -30,6 +31,8 @@ $reviews_options = [
 ];
 
 $reviews_options['language'] = $GLOBALS['user']['language'];
+$reviews_options['block_ojs'] = is_array($block['ojs'] ?? null) ? $block['ojs'] : [];
+if (!isset($reviews_options['block_ojs']['reviews_min_rating']) && intval($reviews_options['block_ojs']['widgetvalue'] ?? 0) > 0) $reviews_options['values']['reviews_min_rating'] = max(1,min(5,intval($reviews_options['block_ojs']['widgetvalue'])));
 $reviews_options['instance'] = new FiCMSReviews(dirname(__DIR__,2),$GLOBALS['site']['default_language'],$GLOBALS['site']['installed_languages']);
 foreach ([1,2,3,4,5] as $reviews_options['rating']) $reviews_options['ratings'][$reviews_options['rating']] = ['value'=>$reviews_options['rating'],'name'=>language__get_parsed($reviews_options['language'],'_reviews_rating_option',['rating'=>$reviews_options['rating']])];
 foreach (['none','global','provider'] as $reviews_options['summary_mode']) $reviews_options['summary_modes'][$reviews_options['summary_mode']] = ['value'=>$reviews_options['summary_mode'],'name'=>language__get($reviews_options['language'],'_reviews_widget_summary_'.$reviews_options['summary_mode'])];
@@ -60,9 +63,10 @@ foreach ($reviews_options['fields'] as $reviews_options['key'] => $reviews_optio
 		'dynamic_name'=>$reviews_options['field']['dynamic_name'],
 		'name'=>language__get($reviews_options['language'],$reviews_options['field']['dynamic_name']),
 		'option'=>$reviews_options['key'],
-		'include'=>true,
+		'include'=>$reviews_options['field']['include'] ?? true,
 		'dependencies'=>$reviews_options['dependencies']
 	];
+	if (isset($reviews_options['field']['dependencies'])) $reviews_options['options'][$reviews_options['key']]['dependencies'] = array_replace_recursive($reviews_options['options'][$reviews_options['key']]['dependencies'],$reviews_options['field']['dependencies']);
 	foreach (['attributes','direction','direction_default'] as $reviews_options['property'])
 		if (isset($reviews_options['field'][$reviews_options['property']])) $reviews_options['options'][$reviews_options['key']][$reviews_options['property']] = $reviews_options['field'][$reviews_options['property']];
 	if (($reviews_options['field']['options'] ?? '') == 'ratings') $reviews_options['options'][$reviews_options['key']]['options'] = $reviews_options['ratings'];

@@ -32,7 +32,7 @@ Use the widget tag in a fiCMS widget block:
 
 The optional inner value is the maximum number of reviews. Without a value the widget renders six published reviews for the current language.
 
-Widget block options are supported through `widgetnum` for the limit and `widgetvalue` for the minimum rating.
+Widget block options are supported through `widgetnum` for the limit and `reviews_min_rating` for the minimum rating. Existing blocks that still store the old `widgetvalue` minimum rating continue to render through a legacy fallback.
 
 When a review uses `all` languages, the widget may render it in every frontend language and picks the matching translated text when available.
 

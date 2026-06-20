@@ -58,7 +58,8 @@ $_SERVER['load_services']['reviews'] = true;
 
 if (isset($service['temp']['data']['add']) && intval($service['temp']['data']['add']) > 0) $reviews['limit'] = intval($service['temp']['data']['add']);
 if (isset($reviews['block']['option_widgetnum']) && intval($reviews['block']['option_widgetnum']) > 0) $reviews['limit'] = intval($reviews['block']['option_widgetnum']);
-if (isset($reviews['block']['option_widgetvalue']) && intval($reviews['block']['option_widgetvalue']) > 0) $reviews['min_rating'] = max(1,min(5,intval($reviews['block']['option_widgetvalue'])));
+if (isset($reviews['block']['option_reviews_min_rating']) && intval($reviews['block']['option_reviews_min_rating']) > 0) $reviews['min_rating'] = max(1,min(5,intval($reviews['block']['option_reviews_min_rating'])));
+else if (isset($reviews['block']['option_widgetvalue']) && intval($reviews['block']['option_widgetvalue']) > 0) $reviews['min_rating'] = max(1,min(5,intval($reviews['block']['option_widgetvalue'])));
 foreach ($reviews['options'] as $reviews['option'] => $reviews['default']) $reviews['options'][$reviews['option']] = intval($reviews['block']['option_'.$reviews['option']] ?? $reviews['default']) == 1 ? 1 : 0;
 if ($reviews['limit'] <= 0) $reviews['limit'] = 6;
 

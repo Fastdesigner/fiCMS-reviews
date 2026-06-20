@@ -51,7 +51,7 @@ Important parser rule:
 
 Current widget options:
 - `widgetnum` for amount.
-- `widgetvalue` for minimum rating.
+- `reviews_min_rating` for minimum rating. Old `widgetvalue` values remain render-compatible as a legacy fallback.
 - `reviews_summary_mode` for summary display.
 - `reviews_show_items` for review item display.
 - `reviews_layout` as a datalist generated from `widgets/reviews/blocks/*.html` and matching `DESIGNPATH` additions, excluding `summary`.
