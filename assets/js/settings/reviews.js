@@ -113,6 +113,21 @@ function reviews__reload(form, id) {
 	return true;
 }
 
+function reviews__provider_change(obj) {
+	let elem = (obj instanceof Event) ? obj.target : obj;
+	let form = reviews__form(elem);
+	if (!form) return false;
+	let processed = forms__process(elem,false,false);
+	if (!processed) return false;
+	let post = new FormData();
+	for (let key in processed.data) post.append(key,typeof processed.data[key] === 'object' ? JSON.stringify(processed.data[key]) : processed.data[key]);
+	post.set('action','load');
+	post.set('id','integration-' + (post.get('integration_id') || 'new'));
+	console.log('FICMS_REVIEWS_PROVIDER_CHANGE',{id:post.get('id'),provider:post.get('integration_provider') || ''});
+	settings__load(form,post);
+	return true;
+}
+
 function reviews__poll(form, id, popup = false, count = 0, button = false) {
 	if (!form || !form.isConnected || id == '' || count >= 18) {
 		if (timer.reviews__poll) clearTimeout(timer.reviews__poll);
