@@ -12,7 +12,8 @@ This note captures planned work for `fiCMS-reviews` so another agent can continu
 - Admin integration lives in `settings/pages/reviews.php`.
 - Frontend widget lives in `widgets/reviews/widget.php`.
 - Default widget frame lives in `widgets/reviews/frame.html`.
-- Design override behavior supports `designs/<design>/widgets/review/frame.html` first, then `designs/<design>/widgets/reviews/frame.html`.
+- Default widget blocks live in `widgets/reviews/blocks/*.html`.
+- Design override behavior supports `designs/<design>/widgets/review/` first, then `designs/<design>/widgets/reviews/`. `DESIGNSYSTEM` is not used for review widget layout overrides.
 
 ## V1 Cleanup Implemented
 
@@ -27,11 +28,17 @@ This note captures planned work for `fiCMS-reviews` so another agent can continu
 
 The default widget frame contains:
 - `frame` as the wrapper.
-- `[repeat=list]` for normal review cards.
-- `[repeat=slider]` for slider/card-strip output.
-- `[repeat=summary]` for aggregate summary output.
+- `###summary###` for summary output.
+- `###items###` for all non-summary layouts.
 
-The selected layout determines which repeat section is used. If a selected layout has no matching repeat section in the active frame, rendering falls back to `list`.
+The default widget blocks contain:
+- `widgets/reviews/blocks/list.html` as the normal review-card partial.
+- `widgets/reviews/blocks/slider.html` as the slider/card-strip partial.
+- `widgets/reviews/blocks/summary.html` as the aggregate-summary partial.
+
+The selected layout determines which block file is used. If a selected layout has no matching block file, rendering falls back to `list`.
+Block partials must not contain `[repeat=...]`; `widgets/reviews/widget.php` owns repetition.
+For design frames, PHP fills both the generic `###items###` placeholder and the selected concrete placeholder such as `###list###`, `###slider###`, or `###compact###`.
 
 Important parser rule:
 - Never pass `$reviews['structure']['list']`, `slider`, or `summary` directly into `parser__replace()`.
@@ -43,7 +50,7 @@ Important parser rule:
 Current widget options:
 - `widgetnum` for amount.
 - `widgetvalue` for minimum rating.
-- `reviews_layout` as a datalist generated from the active frame repeat regions.
+- `reviews_layout` as a datalist generated from `widgets/reviews/blocks/*.html` and matching `DESIGNPATH` additions.
 - `reviews_sort` as a toggle with `featured`, `date`, `rating` plus `reviews_sort_dir`.
 - `reviews_featured` for featured-only output.
 - `reviews_language` as a multipicker using the `installed-languages` datalist.

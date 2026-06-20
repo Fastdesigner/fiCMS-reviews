@@ -1,0 +1,20 @@
+<article class="reviews__item" data-rating="###rating_value###" data-featured="###featured###" data-provider="###provider###">
+	[if '###render_rating###'=='1']
+	<div class="reviews__rating" aria-label="###rating_label###">###rating_stars###</div>
+	[/if]
+	<blockquote class="reviews__text">###text###</blockquote>
+	<footer class="reviews__meta">
+		[if '###has_author###'=='1']
+		<span class="reviews__author">###author###</span>
+		[/if]
+		[if '###render_source###'=='1']
+		<span class="reviews__source">###source###</span>
+		[/if]
+		[if '###render_provider_logo###'=='1']
+		<img class="reviews__provider-logo" src="###provider_logo###" alt="###provider###" width="16" height="16">
+		[/if]
+		[if '###render_date###'=='1']
+		<time class="reviews__date" datetime="###datetime###">###date###</time>
+		[/if]
+	</footer>
+</article>

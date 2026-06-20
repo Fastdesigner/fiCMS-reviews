@@ -247,6 +247,7 @@ class FiCMSReviewsGoogleProvider extends FiCMSReviewsProvider {
 			'source'=>$integration['target']['location_title'] != '' ? $integration['target']['location_title'] : $integration['label'],
 			'rating'=>$this->rating($review['starRating'] ?? 5),
 			'text'=>[$language=>self::commentForLanguage($review['comment'] ?? '',$language,$this->reviews->defaultLanguage())],
+			'languages'=>[$language],
 			'date'=>$this->time($review['createTime'] ?? ''),
 			'external_updated'=>$this->time($review['updateTime'] ?? '')
 		];

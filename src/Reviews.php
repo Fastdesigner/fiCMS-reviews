@@ -280,7 +280,7 @@ class FiCMSReviews {
 			if (intval($row['rating']) < intval($filter['min_rating'])) continue;
 			if (intval($filter['featured']) == 1 && empty($row['featured'])) continue;
 			if (!$this->matchesWidgetLanguage($row['lid'],$filter['language'],$language)) continue;
-			if ($row['text'] == '') continue;
+			if (empty($row['has_text'])) continue;
 			$rows[] = $row;
 		}
 		$rows = $this->sortRows($rows,$filter['sort'],$filter['direction']);
@@ -375,6 +375,7 @@ class FiCMSReviews {
 		$entry['external_updated'] = intval($entry['external_updated'] ?? 0);
 		$entry['imported'] = !empty($entry['imported']) ? 1 : 0;
 		$entry['read_only'] = !empty($entry['read_only']) ? 1 : 0;
+		if ($entry['imported'] == 1 && in_array('all',$entry['lid'],true) && count($this->installedLanguages) == 1) $entry['lid'] = [$this->installedLanguages[0]];
 		return $entry;
 	}
 
@@ -386,6 +387,7 @@ class FiCMSReviews {
 		$entry['text'] = $this->resolveText($entry['text'],$language);
 		$provider = $this->provider($entry['provider']);
 		if ($provider) $entry['text'] = $provider->displayText($entry['text'],$language);
+		$entry['has_text'] = trim((string) $entry['text']) !== '' ? 1 : 0;
 		$entry['sort_id'] = $id;
 		$entry['search'] = trim($id.' '.$entry['author'].' '.$entry['source'].' '.$entry['text'].' '.$entry['provider']);
 		return $entry;
@@ -443,6 +445,14 @@ class FiCMSReviews {
 			if (in_array($language,$this->installedLanguages,true)) $languages[] = $language;
 		}
 		return empty($languages) ? ['all'] : array_values(array_unique($languages));
+	}
+
+	private function reviewLanguages($review, $text) {
+		$languages = $this->normalizeLanguages($review['languages'] ?? ($review['lid'] ?? []),true);
+		if (!in_array('all',$languages,true)) return $languages;
+		$languages = $this->textLanguages($text);
+		if (!in_array('all',$languages,true)) return $languages;
+		return count($this->installedLanguages) == 1 ? [$this->installedLanguages[0]] : ['all'];
 	}
 
 	private function normalizeLanguages($value, $strict) {
@@ -630,7 +640,7 @@ class FiCMSReviews {
 			'source'=>$this->normalizePlainText($review['source'] ?? $existing['source']),
 			'rating'=>max(1,min(5,intval($review['rating'] ?? $existing['rating']))),
 			'text'=>$text,
-			'lid'=>$this->textLanguages($text),
+			'lid'=>$this->reviewLanguages($review,$text),
 			'date'=>intval($review['date'] ?? $existing['date']),
 			'published'=>intval($existing['published'] ?? 1),
 			'featured'=>intval($existing['featured'] ?? 0),

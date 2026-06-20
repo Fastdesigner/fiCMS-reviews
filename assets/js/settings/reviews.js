@@ -104,6 +104,22 @@ function reviews__init(form) {
 	return true;
 }
 
+function reviews__textless_diagnostics(root = document) {
+	let rows = [];
+	if (root && root.matches && root.matches('[data-reviews-textless-diagnostic="true"]')) rows.push(root);
+	if (root && root.querySelectorAll) root.querySelectorAll('[data-reviews-textless-diagnostic="true"]').forEach(row => rows.push(row));
+	rows.forEach(row => {
+		if (row.getAttribute('data-reviews-textless-logged') == '1') return;
+		row.setAttribute('data-reviews-textless-logged','1');
+		console.log('FICMS_REVIEWS_TEXTLESS_REVIEW',{
+			id:row.getAttribute('data-reviews-textless-id') || '',
+			provider:row.getAttribute('data-reviews-textless-provider') || '',
+			lid:row.getAttribute('data-reviews-textless-lid') || '',
+			published:row.getAttribute('data-reviews-textless-published') || ''
+		});
+	});
+}
+
 function reviews__reload(form, id, reason = 'manual') {
 	let post = new FormData();
 	post.append('action','load');
@@ -224,6 +240,8 @@ function reviews__mutations_settings() {
 }
 
 if (typeof mutations__add === 'function') mutations__add('[data-setting="pages-reviews"] form',reviews__init);
+if (typeof mutations__add === 'function') mutations__add('[data-reviews-textless-diagnostic="true"]',reviews__textless_diagnostics);
 window.removeEventListener('message',reviews__oauth_message);
 window.addEventListener('message',reviews__oauth_message);
 document.querySelectorAll('[data-setting="pages-reviews"] form').forEach(form => reviews__init(form));
+reviews__textless_diagnostics(document);

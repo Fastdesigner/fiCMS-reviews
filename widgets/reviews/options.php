@@ -33,13 +33,16 @@ foreach ($reviews_options['sorts'] as $reviews_options['sort']) $reviews_options
 $reviews_options['datalists']['reviews-providers'] = ['all'=>['name'=>language__get($reviews_options['language'],'_sort_all'),'value'=>'all']];
 foreach ($reviews_options['instance']->providers() as $reviews_options['provider']) $reviews_options['datalists']['reviews-providers'][$reviews_options['provider']['value']] = $reviews_options['provider'];
 
-$reviews_options['structure_file'] = widgets__layout_file('review');
-if ($reviews_options['structure_file'] == '') $reviews_options['structure_file'] = widgets__layout_file('reviews');
-if ($reviews_options['structure_file'] != '') {
-	$reviews_options['structure'] = parser__file($reviews_options['structure_file']);
-	foreach ($reviews_options['structure'] as $reviews_options['key'] => $reviews_options['value']) {
-		if (in_array($reviews_options['key'],['frame','origin'],true)) continue;
-		$reviews_options['layouts'][$reviews_options['key']] = ['name'=>language__get($reviews_options['language'],'_reviews_widget_layout_'.$reviews_options['key']),'value'=>$reviews_options['key']];
+$reviews_options['layout_dirs'] = [
+	__DIR__.'/blocks',
+	DESIGNPATH.'/widgets/review/blocks',
+	DESIGNPATH.'/widgets/reviews/blocks'
+];
+foreach ($reviews_options['layout_dirs'] as $reviews_options['layout_dir']) {
+	foreach (glob($reviews_options['layout_dir'].'/*.html', GLOB_NOSORT) ?: [] as $reviews_options['layout_file']) {
+		$reviews_options['layout_key'] = basename($reviews_options['layout_file'],'.html');
+		if ($reviews_options['layout_key'] == '') continue;
+		$reviews_options['layouts'][$reviews_options['layout_key']] = ['name'=>language__get($reviews_options['language'],'_reviews_widget_layout_'.$reviews_options['layout_key']),'value'=>$reviews_options['layout_key']];
 	}
 }
 if (!isset($reviews_options['layouts']['list'])) $reviews_options['layouts']['list'] = ['name'=>language__get($reviews_options['language'],'_reviews_widget_layout_list'),'value'=>'list'];

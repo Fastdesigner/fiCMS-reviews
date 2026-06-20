@@ -7,6 +7,13 @@ require_once dirname(__DIR__,2).'/src/Reviews.php';
 $reviews = [
 	'structure_file'=>'',
 	'structure'=>[],
+	'layout_paths'=>[
+		DESIGNPATH.'/widgets/review',
+		DESIGNPATH.'/widgets/reviews',
+		__DIR__
+	],
+	'block_files'=>[],
+	'sections'=>[],
 	'block'=>isset($service['temp']['data']['block']) && is_array($service['temp']['data']['block']) ? $service['temp']['data']['block'] : [],
 	'limit'=>6,
 	'layout'=>'list',
@@ -17,9 +24,11 @@ $reviews = [
 	'replace'=>[
 		'count'=>0,
 		'layout'=>'list',
+		'items'=>'',
 		'list'=>'',
 		'slider'=>'',
 		'summary'=>'',
+		'render_items'=>0,
 		'render_list'=>0,
 		'render_slider'=>0,
 		'render_summary'=>0
@@ -34,8 +43,7 @@ $reviews = [
 	'instance'=>new FiCMSReviews(dirname(__DIR__,2),$site['default_language'],$site['installed_languages'])
 ];
 
-$reviews['structure_file'] = widgets__layout_file('review');
-if ($reviews['structure_file'] == '') $reviews['structure_file'] = widgets__layout_file($service['temp']['data']['wert']);
+foreach ($reviews['layout_paths'] as $reviews['layout_path']) if (is_file($reviews['layout_path'].'/frame.html')) { $reviews['structure_file'] = $reviews['layout_path'].'/frame.html'; break; }
 if ($reviews['structure_file'] == '') {
 	$service['content'] = '';
 	unset($reviews);
@@ -49,10 +57,26 @@ foreach ($reviews['options'] as $reviews['option'] => $reviews['default']) $revi
 if ($reviews['limit'] <= 0) $reviews['limit'] = 6;
 
 $reviews['layout'] = trim((string) ($reviews['block']['option_reviews_layout'] ?? 'list'));
-if (!in_array($reviews['layout'],['list','slider','summary'],true)) $reviews['layout'] = 'list';
+if ($reviews['layout'] == '') $reviews['layout'] = 'list';
 $reviews['structure'] = parser__file($reviews['structure_file']);
-foreach (['list','slider','summary'] as $reviews['section']) if (!isset($reviews['structure'][$reviews['section']])) $reviews['structure'][$reviews['section']] = '';
-$reviews['selected'] = ($reviews['layout'] != 'list' && $reviews['structure'][$reviews['layout']] == '') ? 'list' : $reviews['layout'];
+foreach ($reviews['layout_paths'] as $reviews['layout_path']) {
+	foreach (glob($reviews['layout_path'].'/blocks/*.html', GLOB_NOSORT) ?: [] as $reviews['section_file']) {
+		$reviews['section'] = basename($reviews['section_file'],'.html');
+		if ($reviews['section'] != '') $reviews['sections'][$reviews['section']] = $reviews['section'];
+	}
+}
+foreach ($reviews['sections'] as $reviews['section']) {
+	$reviews['replace'][$reviews['section']] = '';
+	$reviews['replace']['render_'.$reviews['section']] = 0;
+	$reviews['structure'][$reviews['section']] = '';
+	$reviews['block_files'][$reviews['section']] = '';
+	foreach ($reviews['layout_paths'] as $reviews['layout_path']) if (is_file($reviews['layout_path'].'/blocks/'.$reviews['section'].'.html')) { $reviews['block_files'][$reviews['section']] = $reviews['layout_path'].'/blocks/'.$reviews['section'].'.html'; break; }
+	if ($reviews['block_files'][$reviews['section']] == '') continue;
+	$reviews['block_structure'] = parser__file($reviews['block_files'][$reviews['section']]);
+	$reviews['structure'][$reviews['section']] = $reviews['block_structure']['frame'] ?? '';
+}
+if (!isset($reviews['structure'][$reviews['layout']]) || $reviews['structure'][$reviews['layout']] == '') $reviews['layout'] = 'list';
+$reviews['selected'] = $reviews['layout'];
 
 // Fragment-Cache: Output hängt an Block-Optionen (block:<id>), Sprache (Scope) und den
 // Review-Quelldateien (data/reviews.json + integrations.json, vom Sync neu geschrieben → mtime).
@@ -68,7 +92,7 @@ $reviews['definition'] = [
 	'watch'=>[
 		'versions'=>($reviews['block_id'] > 0 ? ['block:'.$reviews['block_id']] : []),
 		'values'=>[],
-		'files'=>array_values(array_filter([__FILE__,$reviews['structure_file'],$reviews['instance']->dataFile(),$reviews['instance']->integrationsFile()]))
+		'files'=>array_values(array_filter(array_merge([__FILE__,$reviews['structure_file'],$reviews['instance']->dataFile(),$reviews['instance']->integrationsFile()],$reviews['block_files'])))
 	],
 	'policy'=>['cacheable'=>($reviews['block_id'] > 0 && (!isset($service['cache']['policy']['cacheable']) || (int) $service['cache']['policy']['cacheable'] === 1)) ? 1 : 0],
 	'meta'=>[]
@@ -140,12 +164,16 @@ if (count($reviews['rows']) > 0) {
 		'rating_3_count'=>$reviews['summary']['rating_3_count'],
 		'rating_4_count'=>$reviews['summary']['rating_4_count'],
 		'rating_5_count'=>$reviews['summary']['rating_5_count'],
+		'render_items'=>$reviews['selected'] == 'summary' ? 0 : 1,
 		'render_'.$reviews['selected']=>1
 	]);
 	if ($reviews['selected'] == 'summary' && $reviews['structure']['summary'] !== '') {
 		$reviews['line'] = $reviews['structure']['summary'];
 		$reviews['replace']['summary'] = parser__replace($reviews['line'],$reviews['replace']);
-	} else $reviews['replace'][$reviews['selected']] = implode('',$reviews['items']);
+	} else {
+		$reviews['replace']['items'] = implode('',$reviews['items']);
+		$reviews['replace'][$reviews['selected']] = $reviews['replace']['items'];
+	}
 	$reviews['frame'] = $reviews['structure']['frame'];
 	$reviews['content'] = parser__replace($reviews['frame'],$reviews['replace']);
 }

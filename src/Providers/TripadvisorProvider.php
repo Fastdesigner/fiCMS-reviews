@@ -160,6 +160,7 @@ class FiCMSReviewsTripadvisorProvider extends FiCMSReviewsProvider {
 			'source'=>trim((string) ($integration['target']['location_title'] ?? '')) != '' ? trim((string) $integration['target']['location_title']) : $integration['label'],
 			'rating'=>$this->rating($review['rating'] ?? 5),
 			'text'=>[$language=>$text],
+			'languages'=>[$language],
 			'date'=>$this->time($review['publish_ts'] ?? ''),
 			'external_updated'=>$this->time($review['publish_ts'] ?? '')
 		];
