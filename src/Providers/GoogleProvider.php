@@ -58,7 +58,7 @@ class FiCMSReviewsGoogleProvider extends FiCMSReviewsProvider {
 
 	public function status($integration) {
 		$integration = $this->reviews->normalizeIntegration($integration);
-		if (class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$integration['account_ref']) && trim((string) ($integration['target']['location_name'] ?? '')) == '') $integration = $this->resolveTarget($integration);
+		if ($integration['id'] != 'new' && class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$integration['account_ref']) && trim((string) ($integration['target']['location_name'] ?? '')) == '') $integration = $this->resolveTarget($integration);
 		$integration['connected'] = class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$integration['account_ref']) ? 1 : 0;
 		$integration['provider_available'] = class_exists('\google\BusinessProfile') ? 1 : 0;
 		$integration['oauth_available'] = class_exists('\oauth\OAuth') && \oauth\OAuth::provider('google',false) ? 1 : 0;

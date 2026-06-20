@@ -23,14 +23,12 @@ class FiCMSReviewsTripadvisorProvider extends FiCMSReviewsProvider {
 			'target_label'=>'_reviews_tripadvisor_location_id',
 			'secret_fields'=>['api_key'=>'_reviews_tripadvisor_api_key'],
 			'form_fields'=>[
-				'tripadvisor_api_key'=>['type'=>'password','attributes'=>['autocomplete'=>'off']],
-				'tripadvisor_location_id'=>['required'=>true],
-				'tripadvisor_location_title'=>[]
+				'tripadvisor_api_key'=>['attributes'=>['autocomplete'=>'off']],
+				'tripadvisor_location_id'=>['required'=>true]
 			],
 			'form_values'=>[
 				'tripadvisor_api_key'=>'',
-				'tripadvisor_location_id'=>$integration['target']['location_name'] ?? '',
-				'tripadvisor_location_title'=>$integration['target']['location_title'] ?? ''
+				'tripadvisor_location_id'=>$integration['target']['location_name'] ?? ''
 			]
 		];
 	}
@@ -42,9 +40,8 @@ class FiCMSReviewsTripadvisorProvider extends FiCMSReviewsProvider {
 		$integration['target'] = [
 			'account_name'=>'',
 			'location_name'=>$locationId,
-			'location_title'=>trim((string) ($post['integration_tripadvisor_location_title'] ?? ($existing['target']['location_title'] ?? '')))
+			'location_title'=>trim((string) ($integration['label'] ?? ''))
 		];
-		if ($integration['target']['location_title'] == '' && $locationId != '') $integration['target']['location_title'] = 'Tripadvisor '.$locationId;
 		if ($integration['last_error'] == 'tripadvisor_config_missing') $integration['last_error'] = '';
 		return $integration;
 	}

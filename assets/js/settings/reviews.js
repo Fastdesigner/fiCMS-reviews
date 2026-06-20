@@ -121,6 +121,7 @@ function reviews__provider_change(obj) {
 	if (!processed) return false;
 	let post = new FormData();
 	for (let key in processed.data) post.append(key,typeof processed.data[key] === 'object' ? JSON.stringify(processed.data[key]) : processed.data[key]);
+	if ((elem.name || elem.dataset.name || '') == 'integration_provider') post.set('integration_provider',elem.getAttribute('data-value') || elem.value || post.get('integration_provider') || '');
 	post.set('action','load');
 	post.set('id','integration-' + (post.get('integration_id') || 'new'));
 	console.log('FICMS_REVIEWS_PROVIDER_CHANGE',{id:post.get('id'),provider:post.get('integration_provider') || ''});

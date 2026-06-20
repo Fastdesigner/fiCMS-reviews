@@ -218,6 +218,20 @@ class FiCMSReviews {
 		return $integration;
 	}
 
+	public function previewIntegrationStatus($integration) {
+		$integration = $this->normalizeIntegration($integration);
+		$provider = $this->provider($integration['provider']);
+		if ($provider) $integration = $provider->status($integration);
+		else {
+			$integration['connected'] = 0;
+			$integration['provider_available'] = 0;
+			$integration['oauth_available'] = 0;
+			$integration['ready'] = 0;
+		}
+		$integration['timer'] = 0;
+		return $integration;
+	}
+
 	public function providerLocationChoices($integration = []) {
 		$integration = $this->normalizeIntegration($integration);
 		$provider = $this->provider($integration['provider']);
