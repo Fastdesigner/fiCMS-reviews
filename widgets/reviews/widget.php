@@ -73,11 +73,11 @@ $reviews['definition'] = [
 	'policy'=>['cacheable'=>($reviews['block_id'] > 0 && (!isset($service['cache']['policy']['cacheable']) || (int) $service['cache']['policy']['cacheable'] === 1)) ? 1 : 0],
 	'meta'=>[]
 ];
-$reviews['entry'] = false;
+$reviews['cache_entry'] = false;
 if ($reviews['definition']['policy']['cacheable'] == 1) {
-	$reviews['entry'] = $_SERVER['CacheDirector']->entry($reviews['definition']);
-	$reviews['entry']->setDefinition($reviews['definition']);
-	$reviews['cached'] = $reviews['entry']->get();
+	$reviews['cache_entry'] = $_SERVER['CacheDirector']->entry($reviews['definition']);
+	$reviews['cache_entry']->setDefinition($reviews['definition']);
+	$reviews['cached'] = $reviews['cache_entry']->get();
 	if ($reviews['cached'] !== false) {
 		$service['content'] = $reviews['cached'];
 		unset($reviews);
@@ -95,29 +95,29 @@ $reviews['rows'] = $reviews['instance']->widget([
 	'direction'=>trim((string) ($reviews['block']['option_reviews_sort_dir'] ?? 'DESC'))
 ],$_SESSION['language']);
 
-foreach ($reviews['rows'] as $reviews['entry']) {
-	$reviews['rating'] = max(1,min(5,intval($reviews['entry']['rating'] ?? 0)));
-	$reviews['provider_logo'] = $reviews['instance']->getProviderLogo($reviews['entry']['provider'] ?? '');
+foreach ($reviews['rows'] as $reviews['row']) {
+	$reviews['rating'] = max(1,min(5,intval($reviews['row']['rating'] ?? 0)));
+	$reviews['provider_logo'] = $reviews['instance']->getProviderLogo($reviews['row']['provider'] ?? '');
 	$reviews['item'] = [
-		'id'=>htmlspecialchars(trim((string) ($reviews['entry']['id'] ?? '')),ENT_QUOTES,'UTF-8'),
-		'author'=>htmlspecialchars(trim((string) ($reviews['entry']['author'] ?? '')),ENT_QUOTES,'UTF-8'),
-		'author_initials'=>htmlspecialchars(trim((string) ($reviews['entry']['author_initials'] ?? '')),ENT_QUOTES,'UTF-8'),
-		'source'=>htmlspecialchars(trim((string) ($reviews['entry']['source'] ?? '')),ENT_QUOTES,'UTF-8'),
-		'text'=>nl2br(htmlspecialchars(trim((string) ($reviews['entry']['text'] ?? '')),ENT_QUOTES,'UTF-8')),
+		'id'=>htmlspecialchars(trim((string) ($reviews['row']['id'] ?? '')),ENT_QUOTES,'UTF-8'),
+		'author'=>htmlspecialchars(trim((string) ($reviews['row']['author'] ?? '')),ENT_QUOTES,'UTF-8'),
+		'author_initials'=>htmlspecialchars(trim((string) ($reviews['row']['author_initials'] ?? '')),ENT_QUOTES,'UTF-8'),
+		'source'=>htmlspecialchars(trim((string) ($reviews['row']['source'] ?? '')),ENT_QUOTES,'UTF-8'),
+		'text'=>nl2br(htmlspecialchars(trim((string) ($reviews['row']['text'] ?? '')),ENT_QUOTES,'UTF-8')),
 		'rating'=>$reviews['rating'],
 		'rating_value'=>$reviews['rating'],
 		'rating_label'=>htmlspecialchars(language__get_parsed($_SESSION['language'],'_reviews_rating_label',['rating'=>$reviews['rating']]),ENT_QUOTES,'UTF-8'),
 		'rating_stars'=>str_repeat('★',$reviews['rating']),
-		'date'=>format__date_relative(intval($reviews['entry']['date'] ?? $_SERVER['now']),'date',$_SESSION['language']),
-		'datetime'=>date('Y-m-d',intval($reviews['entry']['date'] ?? $_SERVER['now'])),
-		'featured'=>intval($reviews['entry']['featured'] ?? 0),
-		'provider'=>htmlspecialchars(trim((string) ($reviews['entry']['provider'] ?? 'local')),ENT_QUOTES,'UTF-8'),
+		'date'=>format__date_relative(intval($reviews['row']['date'] ?? $_SERVER['now']),'date',$_SESSION['language']),
+		'datetime'=>date('Y-m-d',intval($reviews['row']['date'] ?? $_SERVER['now'])),
+		'featured'=>intval($reviews['row']['featured'] ?? 0),
+		'provider'=>htmlspecialchars(trim((string) ($reviews['row']['provider'] ?? 'local')),ENT_QUOTES,'UTF-8'),
 		'provider_logo'=>htmlspecialchars($reviews['provider_logo'],ENT_QUOTES,'UTF-8'),
-		'has_author'=>trim((string) ($reviews['entry']['author'] ?? '')) !== '' ? 1 : 0,
-		'has_source'=>trim((string) ($reviews['entry']['source'] ?? '')) !== '' ? 1 : 0,
+		'has_author'=>trim((string) ($reviews['row']['author'] ?? '')) !== '' ? 1 : 0,
+		'has_source'=>trim((string) ($reviews['row']['source'] ?? '')) !== '' ? 1 : 0,
 		'has_provider_logo'=>$reviews['provider_logo'] != '' ? 1 : 0,
 		'render_rating'=>$reviews['options']['show_rating'],
-		'render_source'=>($reviews['options']['show_source'] == 1 && $reviews['provider_logo'] == '' && trim((string) ($reviews['entry']['source'] ?? '')) !== '') ? 1 : 0,
+		'render_source'=>($reviews['options']['show_source'] == 1 && $reviews['provider_logo'] == '' && trim((string) ($reviews['row']['source'] ?? '')) !== '') ? 1 : 0,
 		'render_provider_logo'=>$reviews['provider_logo'] != '' ? 1 : 0,
 		'render_date'=>$reviews['options']['show_date']
 	];
@@ -150,6 +150,6 @@ if (count($reviews['rows']) > 0) {
 	$reviews['content'] = parser__replace($reviews['frame'],$reviews['replace']);
 }
 $service['content'] = $reviews['content'];
-if ($reviews['entry']) $reviews['entry']->set($service['content'],$reviews['definition']['meta']);
+if ($reviews['cache_entry']) $reviews['cache_entry']->set($service['content'],$reviews['definition']['meta']);
 
 unset($reviews);
