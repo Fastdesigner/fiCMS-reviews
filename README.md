@@ -37,7 +37,9 @@ Widget block options are supported through `widgetnum` for the limit and `widget
 When a review uses `all` languages, the widget may render it in every frontend language and picks the matching translated text when available.
 
 Widget display options:
-- `reviews_layout` (`list`, `slider`, `summary`)
+- `reviews_summary_mode` (`none`, `global`, `provider`)
+- `reviews_show_items`
+- `reviews_layout` (`list`, `slider`, plus design-provided item layouts)
 - `reviews_sort` (`featured`, `date`, `rating`) with `reviews_sort_dir`
 - `reviews_featured`
 - `reviews_language` as installed-language multipicker

@@ -36,7 +36,9 @@ The default widget blocks contain:
 - `widgets/reviews/blocks/slider.html` as the slider/card-strip partial.
 - `widgets/reviews/blocks/summary.html` as the aggregate-summary partial.
 
-The selected layout determines which block file is used. If a selected layout has no matching block file, rendering falls back to `list`.
+The selected review layout determines which item block file is used. If a selected review layout has no matching block file, rendering falls back to `list`.
+Summary display is controlled separately with `reviews_summary_mode`: `none`, `global`, or `provider`.
+Review item display is controlled separately with `reviews_show_items`; list/slider-specific options depend on it.
 Block partials must not contain `[repeat=...]`; `widgets/reviews/widget.php` owns repetition.
 For design frames, PHP fills both the generic `###items###` placeholder and the selected concrete placeholder such as `###list###`, `###slider###`, or `###compact###`.
 
@@ -50,7 +52,9 @@ Important parser rule:
 Current widget options:
 - `widgetnum` for amount.
 - `widgetvalue` for minimum rating.
-- `reviews_layout` as a datalist generated from `widgets/reviews/blocks/*.html` and matching `DESIGNPATH` additions.
+- `reviews_summary_mode` for summary display.
+- `reviews_show_items` for review item display.
+- `reviews_layout` as a datalist generated from `widgets/reviews/blocks/*.html` and matching `DESIGNPATH` additions, excluding `summary`.
 - `reviews_sort` as a toggle with `featured`, `date`, `rating` plus `reviews_sort_dir`.
 - `reviews_featured` for featured-only output.
 - `reviews_language` as a multipicker using the `installed-languages` datalist.

@@ -243,7 +243,6 @@ foreach ($reviews['admin']['rows'] as $reviews['entry']) {
 	$reviews['title'] = trim((string) $reviews['entry']['author']);
 	if ($reviews['title'] == '') $reviews['title'] = language__get($user['language'],'_reviews_no_author');
 	$reviews['item'] = ['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-row','tag'=>'li','description'=>$reviews['title'],'subtitle'=>$reviews['subtitle'],'image'=>PAGEPATH.'/media/language/'.(in_array('all',$reviews['entry']['lid'],true) ? 'all' : $reviews['entry']['lid'][0]).'.png','actions'=>['load'=>['id'=>$reviews['entry']['id'],'form'=>true]]];
-	if (intval($reviews['entry']['imported'] ?? 0) == 1 && ($reviews['entry']['provider'] ?? 'local') != 'local' && empty($reviews['entry']['has_text'])) $reviews['item']['attributes'] = ['data-reviews-textless-diagnostic'=>'true','data-reviews-textless-id'=>$reviews['entry']['id'],'data-reviews-textless-provider'=>$reviews['entry']['provider'],'data-reviews-textless-lid'=>implode(',',$reviews['entry']['lid']),'data-reviews-textless-published'=>intval($reviews['entry']['published'] ?? 0)];
 	$reviews['item']['actions']['ac'] = ['id'=>$reviews['entry']['id'],'action'=>'ac','name'=>$settings['key'].'-'.$reviews['entry']['id'],'checked'=>!empty($reviews['entry']['published']),'dropdown_sync'=>false];
 	if (intval($reviews['entry']['read_only'] ?? 0) != 1) $reviews['item']['actions']['delete'] = ['id'=>$reviews['entry']['id'],'action'=>'delete'];
 	$reviews['items'][] = $reviews['item'];

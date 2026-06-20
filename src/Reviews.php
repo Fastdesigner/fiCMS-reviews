@@ -1,7 +1,11 @@
 <?php
 
+require_once __DIR__.'/Reviews/Normalizer.php';
+require_once __DIR__.'/Reviews/JsonStorage.php';
+require_once __DIR__.'/Reviews/Rows.php';
 require_once __DIR__.'/Providers/Provider.php';
 foreach (glob(__DIR__.'/Providers/*Provider.php') ?: [] as $file) if (basename($file) != 'Provider.php') require_once $file;
+require_once __DIR__.'/Reviews/ProviderRegistry.php';
 
 class FiCMSReviews {
 	const PROVIDER_REFRESH_VERSION = 'provider_language_sync_202606201000';
@@ -14,8 +18,9 @@ class FiCMSReviews {
 	private $installedLanguages = [];
 	private $data = [];
 	private $integrations = [];
-	private $providerClasses = [];
-	private $providerInstances = [];
+	private $normalizer;
+	private $providerRegistry;
+	private $rows;
 
 	public function __construct($basePath = '', $defaultLanguage = '', $installedLanguages = []) {
 		$this->basePath = rtrim((string) $basePath,'/');
@@ -27,7 +32,9 @@ class FiCMSReviews {
 		$this->installedLanguages = is_array($installedLanguages) ? array_values($installedLanguages) : [];
 		if (empty($this->installedLanguages) && isset($GLOBALS['site']['installed_languages']) && is_array($GLOBALS['site']['installed_languages'])) $this->installedLanguages = array_values($GLOBALS['site']['installed_languages']);
 		if (empty($this->installedLanguages)) $this->installedLanguages = [$this->defaultLanguage];
-		$this->providerClasses = $this->loadProviderClasses();
+		$this->normalizer = new FiCMSReviewsNormalizer($this->defaultLanguage,$this->installedLanguages);
+		$this->providerRegistry = new FiCMSReviewsProviderRegistry($this,$this->basePath);
+		$this->rows = new FiCMSReviewsRows($this,$this->normalizer,$this->installedLanguages);
 		$this->data = $this->load();
 		$this->integrations = $this->loadIntegrations();
 	}
@@ -50,7 +57,7 @@ class FiCMSReviews {
 	}
 
 	public function display($id, $language) {
-		return $this->row($id,$this->find($id),$language);
+		return $this->rows->row($id,$this->find($id),$language);
 	}
 
 	public function blank($id = 'new') {
@@ -80,10 +87,10 @@ class FiCMSReviews {
 		if ($id == 'new') $id = $this->createId();
 		$entry = $this->data['reviews'][$id] ?? ['id'=>$id,'created'=>intval($_SERVER['now'] ?? time())];
 		$entry['id'] = $id;
-		$entry['lid'] = $this->normalizeLanguages($post['lid'] ?? ['all'],true);
+		$entry['lid'] = $this->normalizer->languages($post['lid'] ?? ['all'],true);
 		if (intval($entry['read_only'] ?? 0) != 1 || ($entry['provider'] ?? 'local') == 'local') {
-			foreach (['author','source'] as $field) $entry[$field] = $this->normalizePlainText($post[$field] ?? '');
-			$entry['text'] = $this->normalizePostedText($post['text'] ?? []);
+			foreach (['author','source'] as $field) $entry[$field] = $this->normalizer->plainText($post[$field] ?? '');
+			$entry['text'] = $this->normalizer->text($post['text'] ?? []);
 			$entry['rating'] = max(1,min(5,intval($post['rating'] ?? 5)));
 			$entry['date'] = intval($post['date'] ?? ($_SERVER['now'] ?? time()));
 			$entry['provider'] = 'local';
@@ -113,9 +120,7 @@ class FiCMSReviews {
 	}
 
 	public function providerDefinitions() {
-		$definitions = [];
-		foreach ($this->providerClasses as $key => $class) $definitions[$key] = $class::definition();
-		return $definitions;
+		return $this->providerRegistry->definitions();
 	}
 
 	public function defaultLanguage() {
@@ -128,29 +133,20 @@ class FiCMSReviews {
 	}
 
 	private function provider($provider) {
-		$provider = $this->validProvider($provider) ? trim((string) $provider) : '';
-		if ($provider == '' || !isset($this->providerClasses[$provider])) return false;
-		if (!isset($this->providerInstances[$provider])) {
-			$class = $this->providerClasses[$provider];
-			$this->providerInstances[$provider] = new $class($this);
-		}
-		return $this->providerInstances[$provider];
+		return $this->providerRegistry->instance($provider);
 	}
 
 	private function defaultProvider() {
-		$providers = array_keys($this->providerClasses);
-		return $providers[0] ?? 'provider';
+		return $this->providerRegistry->defaultProvider();
 	}
 
 	public function getProviderLogo($provider = '') {
-		$provider = preg_replace('/[^a-z0-9_]/i','',trim((string) $provider));
-		if ($provider == '') return '';
-		foreach (['svg','png','webp'] as $extension) {
-			$file = $this->basePath.'/assets/img/providers/'.$provider.'.'.$extension;
-			$path = (defined('PLUGINPATH') ? PLUGINPATH.'/'.basename($this->basePath) : trim($this->basePath,'/')).'/assets/img/providers/'.$provider.'.'.$extension;
-			if (is_file($file)) return rtrim(PAGEPATH,'/').'/'.$path.'?v='.filemtime($file);
-		}
-		return '';
+		return $this->providerRegistry->logo($provider);
+	}
+
+	public function providerDisplayText($provider, $text, $language) {
+		$instance = $this->provider($provider);
+		return $instance ? $instance->displayText($text,$language) : $text;
 	}
 
 	public function integrations() {
@@ -255,52 +251,19 @@ class FiCMSReviews {
 	}
 
 	public function admin($filter, $language) {
-		$filter = $this->normalizeFilter($filter);
-		$rows = [];
-		foreach ($this->data['reviews'] as $id => $entry) {
-			$row = $this->row($id,$entry,$language);
-			if (!$this->matchesAdmin($row,$filter)) continue;
-			$rows[] = $row;
-		}
-		$rows = $this->sortRows($rows,$filter['sort'],$filter['direction']);
-		$total = count($rows);
-		$pages = max(1,intval(ceil($total / max(1,intval($filter['count'])))));
-		$filter['page'] = min($pages,max(1,intval($filter['page'])));
-		$rows = array_slice($rows,($filter['page'] - 1) * intval($filter['count']),intval($filter['count']));
-		return ['rows'=>$rows,'total'=>$total,'pages'=>$pages,'filter'=>$filter];
+		return $this->rows->admin($this->data['reviews'],$filter,$language);
 	}
 
 	public function widget($filter, $language) {
-		$filter = $this->normalizeWidgetFilter($filter);
-		$rows = [];
-		foreach ($this->data['reviews'] as $id => $entry) {
-			$row = $this->row($id,$entry,$language);
-			if (empty($row['published'])) continue;
-			if (!$this->matchesWidgetProvider($row['provider'],$filter['provider'])) continue;
-			if (intval($row['rating']) < intval($filter['min_rating'])) continue;
-			if (intval($filter['featured']) == 1 && empty($row['featured'])) continue;
-			if (!$this->matchesWidgetLanguage($row['lid'],$filter['language'],$language)) continue;
-			if (empty($row['has_text'])) continue;
-			$rows[] = $row;
-		}
-		$rows = $this->sortRows($rows,$filter['sort'],$filter['direction']);
-		if (intval($filter['limit']) > 0) $rows = array_slice($rows,0,intval($filter['limit']));
-		return $rows;
+		return $this->rows->widget($this->data['reviews'],$filter,$language);
+	}
+
+	public function summaryRows($filter, $language) {
+		return $this->rows->summaryRows($this->data['reviews'],$filter,$language);
 	}
 
 	public function summary($rows, $language) {
-		$summary = ['count'=>count($rows),'rating_sum'=>0,'rating_average'=>0,'rating_average_label'=>'','rating_stars'=>'','rating_1_count'=>0,'rating_2_count'=>0,'rating_3_count'=>0,'rating_4_count'=>0,'rating_5_count'=>0];
-		foreach ($rows as $row) {
-			$rating = max(1,min(5,intval($row['rating'] ?? 0)));
-			$summary['rating_sum'] += $rating;
-			$summary['rating_'.$rating.'_count']++;
-		}
-		if ($summary['count'] > 0) $summary['rating_average'] = round($summary['rating_sum'] / $summary['count'],1);
-		$summary['rating_average_label'] = $this->formatNumber($summary['rating_average'],$language);
-		$summary['rating_stars'] = str_repeat('★',max(1,min(5,intval(round($summary['rating_average'])))));
-		if ($summary['count'] == 0) $summary['rating_stars'] = '';
-		$summary['rating_label'] = function_exists('language__get_parsed') ? language__get_parsed($language,'_reviews_rating_average_label',['rating'=>$summary['rating_average_label']]) : $summary['rating_average_label'].' / 5';
-		return $summary;
+		return $this->rows->summary($rows,$language);
 	}
 
 	private function load() {
@@ -329,23 +292,9 @@ class FiCMSReviews {
 		return $data;
 	}
 
-	private function loadProviderClasses() {
-		$providers = [];
-		foreach (get_declared_classes() as $class) {
-			if (!is_subclass_of($class,'FiCMSReviewsProvider')) continue;
-			$key = trim((string) $class::key());
-			if (!$this->validProvider($key)) continue;
-			$providers[$key] = $class;
-		}
-		ksort($providers);
-		return $providers;
-	}
-
 	public function write() {
 		$this->data['ratings'] = $this->aggregateRatings($this->data['reviews']);
-		if (function_exists('helper__files_write')) return helper__files_write($this->dataFile,$this->data,true,true);
-		if (!is_dir(dirname($this->dataFile))) mkdir(dirname($this->dataFile),0775,true);
-		return file_put_contents($this->dataFile,json_encode($this->data,JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)) !== false;
+		return FiCMSReviewsJsonStorage::write($this->dataFile,$this->data);
 	}
 
 	public function touchData() {
@@ -353,203 +302,11 @@ class FiCMSReviews {
 	}
 
 	private function writeIntegrations() {
-		if (function_exists('helper__files_write')) return helper__files_write($this->integrationsFile,$this->integrations,true,true);
-		if (!is_dir(dirname($this->integrationsFile))) mkdir(dirname($this->integrationsFile),0775,true);
-		return file_put_contents($this->integrationsFile,json_encode($this->integrations,JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)) !== false;
+		return FiCMSReviewsJsonStorage::write($this->integrationsFile,$this->integrations);
 	}
 
 	private function normalizeEntry($id, $entry) {
-		if (!is_array($entry)) $entry = [];
-		$entry['id'] = trim((string) ($entry['id'] ?? $id));
-		$entry['lid'] = $this->normalizeLanguages($entry['lid'] ?? ['all'],false);
-		foreach (['author','source'] as $field) $entry[$field] = $this->normalizePlainText($entry[$field] ?? '');
-		$entry['text'] = $this->normalizeText($entry['text'] ?? []);
-		$entry['rating'] = max(1,min(5,intval($entry['rating'] ?? 5)));
-		$entry['date'] = intval($entry['date'] ?? 0);
-		$entry['published'] = !empty($entry['published']) ? 1 : 0;
-		$entry['featured'] = !empty($entry['featured']) ? 1 : 0;
-		$entry['provider'] = trim((string) ($entry['provider'] ?? 'local'));
-		if (!$this->validProvider($entry['provider'])) $entry['provider'] = 'local';
-		$entry['source_type'] = trim((string) ($entry['source_type'] ?? ($entry['provider'] == 'local' ? 'local' : 'provider')));
-		$entry['external_id'] = trim((string) ($entry['external_id'] ?? ''));
-		$entry['external_updated'] = intval($entry['external_updated'] ?? 0);
-		$entry['imported'] = !empty($entry['imported']) ? 1 : 0;
-		$entry['read_only'] = !empty($entry['read_only']) ? 1 : 0;
-		if ($entry['imported'] == 1 && in_array('all',$entry['lid'],true) && count($this->installedLanguages) == 1) $entry['lid'] = [$this->installedLanguages[0]];
-		return $entry;
-	}
-
-	private function row($id, $entry, $language) {
-		$entry = $this->normalizeEntry($id,$entry);
-		$entry['author'] = trim((string) $entry['author']);
-		$entry['author_initials'] = $this->initials($entry['author']);
-		$entry['source'] = trim((string) $entry['source']);
-		$entry['text'] = $this->resolveText($entry['text'],$language);
-		$provider = $this->provider($entry['provider']);
-		if ($provider) $entry['text'] = $provider->displayText($entry['text'],$language);
-		$entry['has_text'] = trim((string) $entry['text']) !== '' ? 1 : 0;
-		$entry['sort_id'] = $id;
-		$entry['search'] = trim($id.' '.$entry['author'].' '.$entry['source'].' '.$entry['text'].' '.$entry['provider']);
-		return $entry;
-	}
-
-	private function initials($name) {
-		$name = preg_replace('/[^\p{L}\p{N}\s\-]+/u',' ',trim((string) $name));
-		$name = preg_replace('/\s+/u',' ',trim((string) $name));
-		if ($name == '') return '';
-		$parts = preg_split('/[\s\-]+/u',$name);
-		$parts = array_values(array_filter($parts,function($part) { return trim((string) $part) !== ''; }));
-		if (empty($parts)) return '';
-		$initials = mb_substr($parts[0],0,1,'UTF-8');
-		$initials .= count($parts) > 1 ? mb_substr($parts[count($parts) - 1],0,1,'UTF-8') : mb_substr($parts[0],1,1,'UTF-8');
-		return mb_strtoupper($initials,'UTF-8');
-	}
-
-	private function normalizeText($value) {
-		$value = $this->decodeText($value);
-		if (!is_array($value)) return [$this->defaultLanguage=>trim((string) $value)];
-		if (count($value) == 1 && array_keys($value) === [0]) return [$this->defaultLanguage=>trim((string) reset($value))];
-		foreach ($value as $language => $text) $value[$language] = trim((string) $text);
-		return $value;
-	}
-
-	private function normalizePostedText($value) {
-		$value = $this->decodeText($value);
-		if (!is_array($value)) $value = [$this->defaultLanguage=>$value];
-		if (count($value) == 1 && array_keys($value) === [0]) return [$this->defaultLanguage=>trim((string) reset($value))];
-		foreach ($value as $language => $text) $value[$language] = trim((string) $text);
-		return $value;
-	}
-
-	private function normalizePlainText($value) {
-		$value = $this->decodeText($value);
-		if (!is_array($value)) return trim((string) $value);
-		if (isset($value[$this->defaultLanguage]) && trim((string) $value[$this->defaultLanguage]) !== '') return trim((string) $value[$this->defaultLanguage]);
-		foreach ($value as $text) if (trim((string) $text) !== '') return trim((string) $text);
-		return '';
-	}
-
-	private function resolveText($value, $language) {
-		$value = $this->normalizeText($value);
-		if (function_exists('language__from_array')) return trim((string) language__from_array($value,$language));
-		if (isset($value[$language]) && trim((string) $value[$language]) !== '') return trim((string) $value[$language]);
-		if (isset($value[$this->defaultLanguage]) && trim((string) $value[$this->defaultLanguage]) !== '') return trim((string) $value[$this->defaultLanguage]);
-		foreach ($value as $text) if (trim((string) $text) !== '') return trim((string) $text);
-		return '';
-	}
-
-	private function textLanguages($text) {
-		$languages = [];
-		foreach ($this->normalizeText($text) as $language => $value) {
-			if (trim((string) $value) == '') continue;
-			if (in_array($language,$this->installedLanguages,true)) $languages[] = $language;
-		}
-		return empty($languages) ? ['all'] : array_values(array_unique($languages));
-	}
-
-	private function reviewLanguages($review, $text) {
-		$languages = $this->normalizeLanguages($review['languages'] ?? ($review['lid'] ?? []),true);
-		if (!in_array('all',$languages,true)) return $languages;
-		$languages = $this->textLanguages($text);
-		if (!in_array('all',$languages,true)) return $languages;
-		return count($this->installedLanguages) == 1 ? [$this->installedLanguages[0]] : ['all'];
-	}
-
-	private function normalizeLanguages($value, $strict) {
-		$value = $this->decode($value);
-		if (!is_array($value)) $value = [trim((string) $value)];
-		$value = array_values(array_filter(array_map('strval',$value)));
-		if (empty($value) || in_array('all',$value,true)) return ['all'];
-		if ($strict) $value = array_values(array_intersect($value,$this->installedLanguages));
-		return empty($value) ? ['all'] : $value;
-	}
-
-	private function matchesLanguage($languages, $language) {
-		$languages = $this->normalizeLanguages($languages,false);
-		return in_array('all',$languages,true) || in_array($language,$languages,true);
-	}
-
-	private function matchesWidgetLanguage($languages, $filter, $currentLanguage) {
-		$filter = $this->normalizeWidgetLanguages($filter);
-		if (in_array('all',$filter,true)) return true;
-		if (in_array('current',$filter,true)) return $this->matchesLanguage($languages,$currentLanguage);
-		$languages = $this->normalizeLanguages($languages,false);
-		if (in_array('all',$languages,true)) return true;
-		return count(array_intersect($filter,$languages)) > 0;
-	}
-
-	private function normalizeFilter($filter) {
-		$default = ['page'=>1,'count'=>20,'sort'=>'date','direction'=>'DESC','search'=>[],'attributes'=>['published'=>'','featured'=>'','rating'=>'','lid'=>'','provider'=>'']];
-		$filter = is_array($filter) ? array_replace_recursive($default,$filter) : $default;
-		$filter['search'] = is_array($filter['search']) ? array_values(array_filter(array_map('trim',$filter['search']))) : [trim((string) $filter['search'])];
-		$filter['page'] = max(1,intval($filter['page']));
-		$filter['count'] = max(1,intval($filter['count']));
-		$filter['direction'] = strtoupper((string) $filter['direction']) == 'ASC' ? 'ASC' : 'DESC';
-		if (!in_array($filter['sort'],['date','rating','featured'],true)) $filter['sort'] = 'date';
-		return $filter;
-	}
-
-	private function normalizeWidgetFilter($filter) {
-		$default = ['limit'=>6,'min_rating'=>1,'featured'=>0,'language'=>['all'],'provider'=>['all'],'sort'=>'featured','direction'=>'DESC'];
-		$filter = is_array($filter) ? array_merge($default,$filter) : $default;
-		$filter['limit'] = max(0,intval($filter['limit']));
-		$filter['min_rating'] = max(1,min(5,intval($filter['min_rating'])));
-		$filter['featured'] = intval($filter['featured']) == 1 ? 1 : 0;
-		$filter['language'] = $this->normalizeWidgetLanguages($filter['language']);
-		$filter['provider'] = $this->normalizeWidgetProviders($filter['provider']);
-		if (!in_array($filter['sort'],['featured','date','rating'],true)) $filter['sort'] = 'featured';
-		$filter['direction'] = strtoupper((string) $filter['direction']) == 'ASC' ? 'ASC' : 'DESC';
-		return $filter;
-	}
-
-	private function normalizeWidgetLanguages($value) {
-		$value = $this->decode($value);
-		if (!is_array($value)) $value = [trim((string) $value)];
-		$value = array_values(array_filter(array_map('strval',$value)));
-		if (empty($value)) return ['all'];
-		if (in_array('all',$value,true)) return ['all'];
-		return array_values(array_intersect($value,array_merge(['current'],$this->installedLanguages))) ?: ['all'];
-	}
-
-	private function normalizeWidgetProviders($value) {
-		$value = $this->decode($value);
-		if (!is_array($value)) $value = [trim((string) $value)];
-		$value = array_values(array_filter(array_map('strval',$value)));
-		if (empty($value) || in_array('all',$value,true)) return ['all'];
-		return array_values(array_intersect($value,array_keys($this->providers()))) ?: ['all'];
-	}
-
-	private function matchesAdmin($row, $filter) {
-		foreach ($filter['search'] as $search) if ($search !== '' && stripos($row['search'],$search) === false) return false;
-		if ($filter['attributes']['published'] !== '' && intval($row['published']) != intval($filter['attributes']['published'])) return false;
-		if ($filter['attributes']['featured'] !== '' && intval($row['featured']) != intval($filter['attributes']['featured'])) return false;
-		if ($filter['attributes']['rating'] !== '' && intval($row['rating']) != intval($filter['attributes']['rating'])) return false;
-		if ($filter['attributes']['provider'] !== '' && $row['provider'] != $filter['attributes']['provider']) return false;
-		if ($filter['attributes']['lid'] !== '') {
-			if ($filter['attributes']['lid'] == 'all' && !in_array('all',$row['lid'],true)) return false;
-			if ($filter['attributes']['lid'] != 'all' && !in_array($filter['attributes']['lid'],$row['lid'],true)) return false;
-		}
-		return true;
-	}
-
-	private function matchesWidgetProvider($provider, $filter) {
-		$filter = $this->normalizeWidgetProviders($filter);
-		return in_array('all',$filter,true) || in_array($provider,$filter,true);
-	}
-
-	private function sortRows($rows, $sort, $direction) {
-		usort($rows,function($a,$b) use ($sort,$direction) {
-			if ($sort == 'featured') {
-				$left = intval($a['featured'] ?? 0);
-				$right = intval($b['featured'] ?? 0);
-				if ($left != $right) return $right <=> $left;
-			}
-			$left = ($sort == 'rating') ? intval($a['rating'] ?? 0) : intval($a['date'] ?? 0);
-			$right = ($sort == 'rating') ? intval($b['rating'] ?? 0) : intval($b['date'] ?? 0);
-			if ($left == $right) return strcmp((string) ($b['sort_id'] ?? ''),(string) ($a['sort_id'] ?? ''));
-			return $direction == 'ASC' ? ($left <=> $right) : ($right <=> $left);
-		});
-		return $rows;
+		return $this->normalizer->entry($id,$entry);
 	}
 
 	private function legacyGoogleIntegration($config) {
@@ -629,18 +386,18 @@ class FiCMSReviews {
 
 		$existing = $this->normalizeEntry($id,$this->data['reviews'][$id] ?? ['id'=>$id,'created'=>intval($_SERVER['now'] ?? time()),'published'=>1,'featured'=>0,'lid'=>[]]);
 		$text = $existing['text'];
-		foreach ($this->normalizeText($review['text'] ?? []) as $language => $value) {
+		foreach ($this->normalizer->text($review['text'] ?? []) as $language => $value) {
 			if (trim((string) $value) == '') continue;
 			$text[$language] = trim((string) $value);
 		}
 		$entry = [
 			'id'=>$id,
 			'created'=>$existing['created'] ?? intval($_SERVER['now'] ?? time()),
-			'author'=>$this->normalizePlainText($review['author'] ?? $existing['author']),
-			'source'=>$this->normalizePlainText($review['source'] ?? $existing['source']),
+			'author'=>$this->normalizer->plainText($review['author'] ?? $existing['author']),
+			'source'=>$this->normalizer->plainText($review['source'] ?? $existing['source']),
 			'rating'=>max(1,min(5,intval($review['rating'] ?? $existing['rating']))),
 			'text'=>$text,
-			'lid'=>$this->reviewLanguages($review,$text),
+			'lid'=>$this->normalizer->reviewLanguages($review,$text),
 			'date'=>intval($review['date'] ?? $existing['date']),
 			'published'=>intval($existing['published'] ?? 1),
 			'featured'=>intval($existing['featured'] ?? 0),
@@ -687,9 +444,7 @@ class FiCMSReviews {
 	}
 
 	public function normalizeSyncLanguage($language) {
-		$language = strtolower(trim((string) $language));
-		$language = preg_replace('/[^a-z0-9_-]+/','',$language);
-		return $language != '' ? $language : $this->defaultLanguage;
+		return $this->normalizer->syncLanguage($language);
 	}
 
 	public function acceptLanguage($language) {
@@ -764,12 +519,11 @@ class FiCMSReviews {
 	public function deleteTimer($name) {
 		$file = defined('CACHEPATH') ? CACHEPATH.'/timers/.'.$name : '';
 		if ($file == '' || !is_file($file)) return false;
-		if (function_exists('helper__files_delete')) return helper__files_delete($file,true);
 		return unlink($file);
 	}
 
 	private function validProvider($provider) {
-		return preg_match('/^[a-z0-9_-]+$/',trim((string) $provider));
+		return FiCMSReviewsNormalizer::validProviderKey($provider);
 	}
 
 	private function validIntegrationId($id) {
@@ -792,26 +546,7 @@ class FiCMSReviews {
 		return $id !== '' && preg_match('/^[A-Za-z0-9_.-]+$/',$id);
 	}
 
-	private function formatNumber($value, $language) {
-		if (class_exists('NumberFormatter')) {
-			$formatter = new NumberFormatter(str_replace('_','-',(string) $language),NumberFormatter::DECIMAL);
-			$formatter->setAttribute(NumberFormatter::MIN_FRACTION_DIGITS,1);
-			$formatter->setAttribute(NumberFormatter::MAX_FRACTION_DIGITS,1);
-			return $formatter->format($value);
-		}
-		return number_format($value,1,'.','');
-	}
-
-	private function decodeText($value) {
-		if (!is_string($value)) return $value;
-		$decoded = json_decode($value,true);
-		return json_last_error() == JSON_ERROR_NONE ? $decoded : $value;
-	}
-
 	public function decode($value) {
-		if (function_exists('helper__json_convert')) return helper__json_convert($value);
-		if (!is_string($value)) return $value;
-		$decoded = json_decode($value,true);
-		return json_last_error() == JSON_ERROR_NONE ? $decoded : $value;
+		return $this->normalizer->decode($value);
 	}
 }

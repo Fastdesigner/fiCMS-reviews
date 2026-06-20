@@ -19,7 +19,11 @@ $reviews = [
 	'layout'=>'list',
 	'selected'=>'list',
 	'min_rating'=>1,
+	'summary_mode'=>'none',
+	'show_items'=>1,
 	'rows'=>[],
+	'summary_rows'=>[],
+	'summary_items'=>[],
 	'summary'=>[],
 	'replace'=>[
 		'count'=>0,
@@ -56,7 +60,15 @@ if (isset($reviews['block']['option_widgetvalue']) && intval($reviews['block']['
 foreach ($reviews['options'] as $reviews['option'] => $reviews['default']) $reviews['options'][$reviews['option']] = intval($reviews['block']['option_'.$reviews['option']] ?? $reviews['default']) == 1 ? 1 : 0;
 if ($reviews['limit'] <= 0) $reviews['limit'] = 6;
 
+$reviews['summary_mode'] = trim((string) ($reviews['block']['option_reviews_summary_mode'] ?? 'none'));
+if (!in_array($reviews['summary_mode'],['none','global','provider'],true)) $reviews['summary_mode'] = 'none';
+$reviews['show_items'] = intval($reviews['block']['option_reviews_show_items'] ?? 1) == 1 ? 1 : 0;
 $reviews['layout'] = trim((string) ($reviews['block']['option_reviews_layout'] ?? 'list'));
+if ($reviews['layout'] == 'summary') {
+	if (!isset($reviews['block']['option_reviews_summary_mode'])) $reviews['summary_mode'] = 'global';
+	if (!isset($reviews['block']['option_reviews_show_items'])) $reviews['show_items'] = 0;
+	$reviews['layout'] = 'list';
+}
 if ($reviews['layout'] == '') $reviews['layout'] = 'list';
 $reviews['structure'] = parser__file($reviews['structure_file']);
 foreach ($reviews['layout_paths'] as $reviews['layout_path']) {
@@ -109,7 +121,7 @@ if ($reviews['definition']['policy']['cacheable'] == 1) {
 	}
 }
 
-$reviews['rows'] = $reviews['instance']->widget([
+$reviews['filter'] = [
 	'limit'=>$reviews['limit'],
 	'min_rating'=>$reviews['min_rating'],
 	'featured'=>intval($reviews['block']['option_reviews_featured'] ?? 0),
@@ -117,7 +129,9 @@ $reviews['rows'] = $reviews['instance']->widget([
 	'provider'=>$reviews['block']['option_reviews_provider'] ?? ['all'],
 	'sort'=>trim((string) ($reviews['block']['option_reviews_sort'] ?? 'featured')),
 	'direction'=>trim((string) ($reviews['block']['option_reviews_sort_dir'] ?? 'DESC'))
-],$_SESSION['language']);
+];
+$reviews['rows'] = $reviews['show_items'] == 1 ? $reviews['instance']->widget($reviews['filter'],$_SESSION['language']) : [];
+$reviews['summary_rows'] = $reviews['summary_mode'] != 'none' ? $reviews['instance']->summaryRows($reviews['filter'],$_SESSION['language']) : [];
 
 foreach ($reviews['rows'] as $reviews['row']) {
 	$reviews['rating'] = max(1,min(5,intval($reviews['row']['rating'] ?? 0)));
@@ -151,10 +165,56 @@ foreach ($reviews['rows'] as $reviews['row']) {
 	}
 }
 
-if (count($reviews['rows']) > 0) {
-	$reviews['summary'] = $reviews['instance']->summary($reviews['rows'],$_SESSION['language']);
+if (count($reviews['rows']) > 0 || count($reviews['summary_rows']) > 0) {
+	if ($reviews['summary_mode'] == 'global' && $reviews['structure']['summary'] !== '') {
+		$reviews['summary'] = $reviews['instance']->summary($reviews['summary_rows'],$_SESSION['language']);
+		$reviews['provider_logo'] = '';
+		$reviews['line'] = $reviews['structure']['summary'];
+		$reviews['summary_items'][] = parser__replace($reviews['line'],[
+			'count'=>$reviews['summary']['count'],
+			'average'=>htmlspecialchars($reviews['summary']['rating_average_label'],ENT_QUOTES,'UTF-8'),
+			'average_label'=>htmlspecialchars($reviews['summary']['rating_label'],ENT_QUOTES,'UTF-8'),
+			'summary_label'=>htmlspecialchars(language__get($_SESSION['language'],'_reviews_widget_summary_global_label'),ENT_QUOTES,'UTF-8'),
+			'summary_rating_stars'=>htmlspecialchars($reviews['summary']['rating_stars'],ENT_QUOTES,'UTF-8'),
+			'rating_1_count'=>$reviews['summary']['rating_1_count'],
+			'rating_2_count'=>$reviews['summary']['rating_2_count'],
+			'rating_3_count'=>$reviews['summary']['rating_3_count'],
+			'rating_4_count'=>$reviews['summary']['rating_4_count'],
+			'rating_5_count'=>$reviews['summary']['rating_5_count'],
+			'provider'=>'all',
+			'provider_logo'=>'',
+			'has_provider_logo'=>0
+		]);
+	} else if ($reviews['summary_mode'] == 'provider' && $reviews['structure']['summary'] !== '') {
+		$reviews['summary_groups'] = [];
+		$reviews['providers'] = $reviews['instance']->providers();
+		foreach ($reviews['summary_rows'] as $reviews['summary_row']) $reviews['summary_groups'][$reviews['summary_row']['provider']][] = $reviews['summary_row'];
+		foreach ($reviews['summary_groups'] as $reviews['provider'] => $reviews['summary_group']) {
+			$reviews['summary'] = $reviews['instance']->summary($reviews['summary_group'],$_SESSION['language']);
+			$reviews['provider_logo'] = $reviews['instance']->getProviderLogo($reviews['provider']);
+			$reviews['provider_name'] = $reviews['providers'][$reviews['provider']]['name'] ?? ucfirst($reviews['provider']);
+			$reviews['line'] = $reviews['structure']['summary'];
+			$reviews['summary_items'][] = parser__replace($reviews['line'],[
+				'count'=>$reviews['summary']['count'],
+				'average'=>htmlspecialchars($reviews['summary']['rating_average_label'],ENT_QUOTES,'UTF-8'),
+				'average_label'=>htmlspecialchars($reviews['summary']['rating_label'],ENT_QUOTES,'UTF-8'),
+				'summary_label'=>htmlspecialchars($reviews['provider_name'],ENT_QUOTES,'UTF-8'),
+				'summary_rating_stars'=>htmlspecialchars($reviews['summary']['rating_stars'],ENT_QUOTES,'UTF-8'),
+				'rating_1_count'=>$reviews['summary']['rating_1_count'],
+				'rating_2_count'=>$reviews['summary']['rating_2_count'],
+				'rating_3_count'=>$reviews['summary']['rating_3_count'],
+				'rating_4_count'=>$reviews['summary']['rating_4_count'],
+				'rating_5_count'=>$reviews['summary']['rating_5_count'],
+				'provider'=>htmlspecialchars($reviews['provider'],ENT_QUOTES,'UTF-8'),
+				'provider_logo'=>htmlspecialchars($reviews['provider_logo'],ENT_QUOTES,'UTF-8'),
+				'has_provider_logo'=>$reviews['provider_logo'] != '' ? 1 : 0
+			]);
+		}
+	}
+	$reviews['summary_base'] = count($reviews['summary_rows']) > 0 ? $reviews['summary_rows'] : $reviews['rows'];
+	$reviews['summary'] = $reviews['instance']->summary($reviews['summary_base'],$_SESSION['language']);
 	$reviews['replace'] = array_merge($reviews['replace'],[
-		'count'=>count($reviews['rows']),
+		'count'=>$reviews['show_items'] == 1 ? count($reviews['rows']) : count($reviews['summary_rows']),
 		'layout'=>$reviews['selected'],
 		'average'=>htmlspecialchars($reviews['summary']['rating_average_label'],ENT_QUOTES,'UTF-8'),
 		'average_label'=>htmlspecialchars($reviews['summary']['rating_label'],ENT_QUOTES,'UTF-8'),
@@ -164,16 +224,13 @@ if (count($reviews['rows']) > 0) {
 		'rating_3_count'=>$reviews['summary']['rating_3_count'],
 		'rating_4_count'=>$reviews['summary']['rating_4_count'],
 		'rating_5_count'=>$reviews['summary']['rating_5_count'],
-		'render_items'=>$reviews['selected'] == 'summary' ? 0 : 1,
-		'render_'.$reviews['selected']=>1
+		'summary'=>implode('',$reviews['summary_items']),
+		'render_summary'=>count($reviews['summary_items']) > 0 ? 1 : 0,
+		'render_items'=>$reviews['show_items'] == 1 && count($reviews['items']) > 0 ? 1 : 0,
+		'render_'.$reviews['selected']=>$reviews['show_items'] == 1 && count($reviews['items']) > 0 ? 1 : 0
 	]);
-	if ($reviews['selected'] == 'summary' && $reviews['structure']['summary'] !== '') {
-		$reviews['line'] = $reviews['structure']['summary'];
-		$reviews['replace']['summary'] = parser__replace($reviews['line'],$reviews['replace']);
-	} else {
-		$reviews['replace']['items'] = implode('',$reviews['items']);
-		$reviews['replace'][$reviews['selected']] = $reviews['replace']['items'];
-	}
+	$reviews['replace']['items'] = implode('',$reviews['items']);
+	$reviews['replace'][$reviews['selected']] = $reviews['replace']['items'];
 	$reviews['frame'] = $reviews['structure']['frame'];
 	$reviews['content'] = parser__replace($reviews['frame'],$reviews['replace']);
 }

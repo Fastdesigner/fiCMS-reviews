@@ -8,10 +8,6 @@ function reviews__state(form) {
 	return form ? form.querySelector('[data-reviews-integration]') : false;
 }
 
-function reviews__debug(stage, data = {}) {
-	console.log('FICMS_REVIEWS_OAUTH_FLOW', stage, data);
-}
-
 function reviews__overlay_styles() {
 	if (document.getElementById('reviews-oauth-overlay-style')) return true;
 	let style = document.createElement('style');
@@ -104,27 +100,10 @@ function reviews__init(form) {
 	return true;
 }
 
-function reviews__textless_diagnostics(root = document) {
-	let rows = [];
-	if (root && root.matches && root.matches('[data-reviews-textless-diagnostic="true"]')) rows.push(root);
-	if (root && root.querySelectorAll) root.querySelectorAll('[data-reviews-textless-diagnostic="true"]').forEach(row => rows.push(row));
-	rows.forEach(row => {
-		if (row.getAttribute('data-reviews-textless-logged') == '1') return;
-		row.setAttribute('data-reviews-textless-logged','1');
-		console.log('FICMS_REVIEWS_TEXTLESS_REVIEW',{
-			id:row.getAttribute('data-reviews-textless-id') || '',
-			provider:row.getAttribute('data-reviews-textless-provider') || '',
-			lid:row.getAttribute('data-reviews-textless-lid') || '',
-			published:row.getAttribute('data-reviews-textless-published') || ''
-		});
-	});
-}
-
-function reviews__reload(form, id, reason = 'manual') {
+function reviews__reload(form, id) {
 	let post = new FormData();
 	post.append('action','load');
 	post.append('id','integration-' + id);
-	reviews__debug('reload:start',{id,reason});
 	settings__load(form,post);
 	setTimeout(() => {
 		let state = document.querySelector('[data-reviews-integration="' + String(id).replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"]');
@@ -152,20 +131,18 @@ function reviews__poll(form, id, popup = false, count = 0, button = false) {
 	fiCMS__refresh(false,post,false,{params:['loadwidget=settings','settingsType=pages-reviews']}).then(response => {
 		let data = fiCMS__json(response);
 		let result = data && data.result ? data.result : false;
-		reviews__debug('poll:response',{id,count,connected:result ? result.connected : null,ready:result ? result.ready : null,locations:!!(result && result.locations && result.locations.result)});
 		if (result && result.connected == 1) {
 			if (timer.reviews__poll) clearTimeout(timer.reviews__poll);
 			reviews__overlay(form,false);
 			reviews__hint(form,false);
 			if (button) button.disabled = false;
-			reviews__reload(form,id,'oauth-connected');
+			reviews__reload(form,id);
 			return;
 		}
 		if (popup && popup.closed) popup = false;
 		if (timer.reviews__poll) clearTimeout(timer.reviews__poll);
 		timer.reviews__poll = setTimeout(reviews__poll,10000,form,id,popup,count + 1,button);
 	}).catch(() => {
-		reviews__debug('poll:error',{id,count});
 		if (timer.reviews__poll) clearTimeout(timer.reviews__poll);
 		timer.reviews__poll = setTimeout(reviews__poll,10000,form,id,popup,count + 1,button);
 	});
@@ -201,7 +178,6 @@ function reviews__connect(event) {
 	fiCMS__refresh(false,post,button,{params:['loadwidget=settings','settingsType=pages-reviews']}).then(response => {
 		let data = fiCMS__json(response);
 		let result = data && data.result ? data.result : false;
-		reviews__debug('connect:response',{result:!!(result && result.result),redirect:!!(result && result.redirect),id:result ? result.id : false});
 		if (!result || result.result !== true || !result.redirect) {
 			button.disabled = false;
 			reviews__overlay(form,false);
@@ -229,7 +205,6 @@ function reviews__oauth_message(event) {
 	let data = event && event.data ? event.data : false;
 	if (!data || data.type !== 'ficms.oauth' || !window.fiCMSReviewsOAuth) return;
 	if (event.origin !== window.location.origin) return;
-	reviews__debug('oauth:message',{provider:data.provider || '',result:data.result === true});
 	if (data.result !== true) return;
 	let state = window.fiCMSReviewsOAuth;
 	reviews__poll(state.form,state.id,state.popup || false,0,state.button || false);
@@ -240,8 +215,6 @@ function reviews__mutations_settings() {
 }
 
 if (typeof mutations__add === 'function') mutations__add('[data-setting="pages-reviews"] form',reviews__init);
-if (typeof mutations__add === 'function') mutations__add('[data-reviews-textless-diagnostic="true"]',reviews__textless_diagnostics);
 window.removeEventListener('message',reviews__oauth_message);
 window.addEventListener('message',reviews__oauth_message);
 document.querySelectorAll('[data-setting="pages-reviews"] form').forEach(form => reviews__init(form));
-reviews__textless_diagnostics(document);
