@@ -94,7 +94,14 @@ Do not add external source assumptions to V1 storage or rendering.
 
 - Admin has an `Integrationen` tab next to the shared review overview.
 - Integrations are shown as provider list entries, following the `fiCMS-booking` model. Do not add one tab per provider.
-- `Neue Integration` first shows label and provider. `Verbinden` is handled by `assets/js/settings/reviews.js`, saves the entry through AJAX, starts OAuth in a popup window, shows a popup-action hint, and polls the saved integration status every ten seconds. After the OAuth account is connected, the settings script reloads the integration form so the admin can select the Business Profile source and save.
+- Provider classes live in `src/Providers/*Provider.php` and extend `FiCMSReviewsProvider`.
+- `src/Reviews.php` discovers provider classes dynamically and builds provider definitions from `Provider::definition()`.
+- Provider-specific requirements such as OAuth, connect action, location choices, form fields, secret status fields, and config error keys are returned through `Provider::requirements()`.
+- `src/Reviews.php` must not branch on provider ids for saving, status, connecting, or syncing. It delegates to the provider methods `saveIntegration()`, `status()`, `connect()`, and `sync()`.
+- `Neue Integration` first stores label and provider. Provider-specific setup happens on the saved integration entry.
+- Google exposes an additional connect/reconnect action. `assets/js/settings/reviews.js` starts OAuth in a popup window, shows a popup-action hint, and polls the saved integration status every ten seconds. After the OAuth account is connected, the settings script reloads the integration form so the admin can select the Business Profile source and save.
+- Integration setup saves run through the plain `settings__load()` path, but PHP must return the refreshed integration form without `result.result === true`. A true form result closes the form panel before the next required setup step is visible.
+- The integration status dropdown is rendered after provider fields and provider location selection, so setup fields stay first in the form.
 - If Google source loading fails with an OAuth error, the integration form marks the connected state as requiring reconnect and exposes a reconnect action even though the local OAuth account file still exists.
 - Existing provider-specific connection actions live on that integration entry.
 - Provider logos are resolved from `assets/img/providers/<provider>.svg|png|webp`.
@@ -112,6 +119,23 @@ Do not add external source assumptions to V1 storage or rendering.
 - Imported Google content is read-only. The shared admin overview allows local language visibility, published state, and featured state.
 - Widget rendering still consumes normalized review rows from `Reviews`; provider-specific API calls do not belong in `widgets/reviews/widget.php`.
 - Widget output is merged by default and can be filtered with `reviews_provider`.
+
+## Tripadvisor Terra Provider
+
+- The provider key is `tripadvisor`.
+- The admin stores the Terra API key on the integration entry in `data/integrations.json`; the key must never be committed to the repository.
+- The integration needs a Tripadvisor Location ID. The optional display name is only used as the normalized review source label.
+- Sync calls `GET https://terra.tripadvisor.com/api/locations/{id}/reviews` with `X-API-KEY`, `sort_by=MOST_RECENT`, `page=1`, and `size=3`.
+- Sync runs once per supported installed language using Terra's `language` query parameter. Terra returns localized `title` and `text` arrays with language metadata; unsupported installed languages are skipped.
+- Imported reviews are accumulated by provider + external review id, because the endpoint may only expose the newest reviews for the location.
+- Terra's public Caching Policy says storing/copying content is not permitted unless the Tripadvisor contract explicitly allows it. The daily collection behavior assumes the active contract allows server-side review storage.
+
+## Temporary Provider Refresh Cleanup
+
+- Google review language sync introduced a one-time cleanup cutoff at `2026-06-20 10:00 Europe/Berlin`.
+- Imported provider reviews older than that cutoff are removed once so the cron can rebuild Google reviews with per-language `Accept-Language` text.
+- The OAuth account and integration configuration must not be removed by this cleanup.
+- After affected installations have rebuilt their Google review data, remove this temporary cutoff/version code from `src/Reviews.php` and the provider sync path as dead code.
 
 ## Google OAuth Bridge Findings
 

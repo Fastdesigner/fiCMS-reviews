@@ -1,6 +1,12 @@
 <?php
 
+require_once __DIR__.'/Providers/Provider.php';
+foreach (glob(__DIR__.'/Providers/*Provider.php') ?: [] as $file) if (basename($file) != 'Provider.php') require_once $file;
+
 class FiCMSReviews {
+	const PROVIDER_REFRESH_VERSION = 'provider_language_sync_202606201000';
+	const PROVIDER_REFRESH_CUTOFF = '2026-06-20 10:00:00 Europe/Berlin';
+
 	private $basePath = '';
 	private $dataFile = '';
 	private $integrationsFile = '';
@@ -8,6 +14,8 @@ class FiCMSReviews {
 	private $installedLanguages = [];
 	private $data = [];
 	private $integrations = [];
+	private $providerClasses = [];
+	private $providerInstances = [];
 
 	public function __construct($basePath = '', $defaultLanguage = '', $installedLanguages = []) {
 		$this->basePath = rtrim((string) $basePath,'/');
@@ -19,6 +27,7 @@ class FiCMSReviews {
 		$this->installedLanguages = is_array($installedLanguages) ? array_values($installedLanguages) : [];
 		if (empty($this->installedLanguages) && isset($GLOBALS['site']['installed_languages']) && is_array($GLOBALS['site']['installed_languages'])) $this->installedLanguages = array_values($GLOBALS['site']['installed_languages']);
 		if (empty($this->installedLanguages)) $this->installedLanguages = [$this->defaultLanguage];
+		$this->providerClasses = $this->loadProviderClasses();
 		$this->data = $this->load();
 		$this->integrations = $this->loadIntegrations();
 	}
@@ -45,7 +54,7 @@ class FiCMSReviews {
 	}
 
 	public function blank($id = 'new') {
-		return ['id'=>$id,'author'=>[],'source'=>[],'rating'=>5,'text'=>[],'lid'=>['all'],'date'=>intval($_SERVER['now'] ?? time()),'published'=>($id == 'new' ? 1 : 0),'featured'=>0,'provider'=>'local','source_type'=>'local','external_id'=>'','external_updated'=>0,'imported'=>0,'read_only'=>0];
+		return ['id'=>$id,'author'=>'','source'=>'','rating'=>5,'text'=>[],'lid'=>['all'],'date'=>intval($_SERVER['now'] ?? time()),'published'=>($id == 'new' ? 1 : 0),'featured'=>0,'provider'=>'local','source_type'=>'local','external_id'=>'','external_updated'=>0,'imported'=>0,'read_only'=>0];
 	}
 
 	public function delete($id) {
@@ -73,7 +82,8 @@ class FiCMSReviews {
 		$entry['id'] = $id;
 		$entry['lid'] = $this->normalizeLanguages($post['lid'] ?? ['all'],true);
 		if (intval($entry['read_only'] ?? 0) != 1 || ($entry['provider'] ?? 'local') == 'local') {
-			foreach (['author','source','text'] as $field) $entry[$field] = $this->normalizePostedText($post[$field] ?? []);
+			foreach (['author','source'] as $field) $entry[$field] = $this->normalizePlainText($post[$field] ?? '');
+			$entry['text'] = $this->normalizePostedText($post['text'] ?? []);
 			$entry['rating'] = max(1,min(5,intval($post['rating'] ?? 5)));
 			$entry['date'] = intval($post['date'] ?? ($_SERVER['now'] ?? time()));
 			$entry['provider'] = 'local';
@@ -103,9 +113,33 @@ class FiCMSReviews {
 	}
 
 	public function providerDefinitions() {
-		return [
-			'google'=>['name'=>'Google','oauth'=>1,'sync'=>1]
-		];
+		$definitions = [];
+		foreach ($this->providerClasses as $key => $class) $definitions[$key] = $class::definition();
+		return $definitions;
+	}
+
+	public function defaultLanguage() {
+		return $this->defaultLanguage;
+	}
+
+	public function providerRequirements($provider, $integration = []) {
+		$instance = $this->provider($provider);
+		return $instance ? $instance->requirements($integration) : ['oauth'=>0,'sync'=>0,'config_error'=>'','connect'=>0,'location_choices'=>0,'form_fields'=>[],'form_values'=>[]];
+	}
+
+	private function provider($provider) {
+		$provider = $this->validProvider($provider) ? trim((string) $provider) : '';
+		if ($provider == '' || !isset($this->providerClasses[$provider])) return false;
+		if (!isset($this->providerInstances[$provider])) {
+			$class = $this->providerClasses[$provider];
+			$this->providerInstances[$provider] = new $class($this);
+		}
+		return $this->providerInstances[$provider];
+	}
+
+	private function defaultProvider() {
+		$providers = array_keys($this->providerClasses);
+		return $providers[0] ?? 'provider';
 	}
 
 	public function getProviderLogo($provider = '') {
@@ -130,12 +164,12 @@ class FiCMSReviews {
 	}
 
 	public function blankIntegration($id = 'new') {
-		return ['id'=>$id,'label'=>'','provider'=>'google','active'=>1,'account_ref'=>'default','target'=>[],'last_sync'=>0,'last_error'=>'','last_count'=>0,'last_imported'=>0,'last_updated'=>0];
+		return ['id'=>$id,'label'=>'','provider'=>$this->defaultProvider(),'active'=>1,'account_ref'=>'default','target'=>[],'config'=>[],'last_sync'=>0,'last_error'=>'','last_count'=>0,'last_imported'=>0,'last_updated'=>0];
 	}
 
 	public function saveIntegrationFromPost($id, $post) {
 		$original = $this->validIntegrationId($id) ? trim((string) $id) : '';
-		$provider = $this->validProvider($post['integration_provider'] ?? '') ? trim((string) $post['integration_provider']) : 'google';
+		$provider = $this->provider($post['integration_provider'] ?? '') ? trim((string) $post['integration_provider']) : $this->defaultProvider();
 		$saveId = $this->validIntegrationId($post['integration_id'] ?? '') ? trim((string) $post['integration_id']) : $original;
 		if ($saveId == '' || $saveId == 'new') $saveId = $this->createIntegrationId($provider);
 		$existing = $original != '' && $original != 'new' ? $this->integration($original) : $this->blankIntegration($saveId);
@@ -146,15 +180,7 @@ class FiCMSReviews {
 			'active'=>($original == '' || $original == 'new') && !isset($post['integration_active']) ? 1 : (!empty($post['integration_active']) ? 1 : 0),
 			'account_ref'=>trim((string) ($post['integration_account_ref'] ?? ($existing['account_ref'] ?? 'default'))) ?: 'default'
 		]);
-		if ($provider == 'google' && isset($post['integration_google_location']) && is_string($post['integration_google_location'])) {
-			$location = $this->decode($post['integration_google_location']);
-			if (is_array($location)) $integration['target'] = [
-				'account_name'=>trim((string) ($location['account_name'] ?? '')),
-				'location_name'=>trim((string) ($location['location_name'] ?? '')),
-				'location_title'=>trim((string) ($location['location_title'] ?? ''))
-			];
-			if (is_array($location) && $integration['last_error'] == 'google_location_missing') $integration['last_error'] = '';
-		}
+		$integration = $this->provider($provider)->saveIntegration($integration,$post,$existing);
 		foreach ($this->integrations['integrations'] as $key => $entry) {
 			if ($entry['id'] != $original && $entry['id'] != $saveId) continue;
 			array_splice($this->integrations['integrations'],$key,1);
@@ -178,105 +204,33 @@ class FiCMSReviews {
 
 	public function connectIntegration($id) {
 		$integration = $this->integration($id);
-		if ($integration['provider'] != 'google') return ['result'=>false];
-		if (!class_exists('\oauth\OAuth')) {
-			$integration['last_error'] = 'OAuth plugin unavailable';
-			$this->storeIntegration($integration);
-			return ['result'=>false,'error'=>$integration['last_error']];
-		}
-		if (!\oauth\OAuth::provider('google',false)) {
-			$integration['last_error'] = 'Google OAuth provider unavailable';
-			$this->storeIntegration($integration);
-			return ['result'=>false,'error'=>$integration['last_error']];
-		}
-		if ($integration['last_error'] != '') {
-			$integration['last_error'] = '';
-			$this->storeIntegration($integration);
-		}
-		return ['result'=>true,'redirect'=>PAGEPATH.'/oauth.php?action=authorize&provider=google&account='.rawurlencode($integration['account_ref']),'redirect_target'=>'_blank'];
+		$provider = $this->provider($integration['provider']);
+		return $provider ? $provider->connect($integration) : ['result'=>false];
 	}
 
 	public function integrationStatus($id) {
 		$integration = $this->integration($id);
-		if ($integration['provider'] == 'google' && class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$integration['account_ref']) && trim((string) ($integration['target']['location_name'] ?? '')) == '') $integration = $this->resolveGoogleTarget($integration);
-		$integration['connected'] = $integration['provider'] == 'google' && class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$integration['account_ref']) ? 1 : 0;
-		$integration['provider_available'] = $integration['provider'] != 'google' || class_exists('\google\BusinessProfile') ? 1 : 0;
-		$integration['oauth_available'] = $integration['provider'] != 'google' || (class_exists('\oauth\OAuth') && \oauth\OAuth::provider('google',false)) ? 1 : 0;
-		$integration['ready'] = $integration['provider'] == 'google' && $integration['connected'] == 1 && trim((string) ($integration['target']['account_name'] ?? '')) != '' && trim((string) ($integration['target']['location_name'] ?? '')) != '' ? 1 : 0;
+		$provider = $this->provider($integration['provider']);
+		if ($provider) $integration = $provider->status($integration);
+		else {
+			$integration['connected'] = 0;
+			$integration['provider_available'] = 0;
+			$integration['oauth_available'] = 0;
+			$integration['ready'] = 0;
+		}
 		$integration['timer'] = $this->timer('reviews_sync_'.$integration['id']);
 		return $integration;
 	}
 
-	public function googleAccounts($integration = []) {
+	public function providerLocationChoices($integration = []) {
 		$integration = $this->normalizeIntegration($integration);
-		$result = ['result'=>false,'items'=>[],'error'=>''];
-		if (!class_exists('\google\BusinessProfile')) {
-			$result['error'] = 'google_unavailable';
-			return $result;
-		}
-		$google = new \google\BusinessProfile($integration['account_ref']);
-		$accounts = $google->accounts();
-		if (!is_array($accounts)) {
-			$result['error'] = $this->googleLastError($google);
-			return $result;
-		}
-		foreach ($accounts['accounts'] ?? [] as $account) {
-			$name = trim((string) ($account['name'] ?? ''));
-			if ($name == '') continue;
-			$result['items'][$name] = ['name'=>trim((string) ($account['accountName'] ?? $name)),'value'=>$name];
-		}
-		$result['result'] = true;
-		return $result;
+		$provider = $this->provider($integration['provider']);
+		return $provider && method_exists($provider,'locationChoices') ? $provider->locationChoices($integration) : ['result'=>false,'items'=>[],'error'=>'provider_locations_unavailable'];
 	}
 
-	public function googleLocations($integration = [], $accountName = '') {
-		$integration = $this->normalizeIntegration($integration);
-		$accountName = trim((string) $accountName) !== '' ? trim((string) $accountName) : trim((string) ($integration['target']['account_name'] ?? ''));
-		$result = ['result'=>false,'items'=>[],'error'=>''];
-		if (!class_exists('\google\BusinessProfile') || $accountName == '') {
-			$result['error'] = $accountName == '' ? 'google_account_missing' : 'google_unavailable';
-			return $result;
-		}
-		$google = new \google\BusinessProfile($integration['account_ref']);
-		$locations = $google->locations($accountName);
-		if (!is_array($locations)) {
-			$result['error'] = $this->googleLastError($google);
-			return $result;
-		}
-		foreach ($locations['locations'] ?? [] as $location) {
-			$name = trim((string) ($location['name'] ?? ''));
-			if ($name == '') continue;
-			$result['items'][$name] = ['name'=>trim((string) ($location['title'] ?? $name)),'value'=>$name];
-		}
-		$result['result'] = true;
-		return $result;
-	}
-
-	public function googleLocationChoices($integration = []) {
-		$choices = [];
-		$accounts = $this->googleAccounts($integration);
-		if (!$accounts['result']) return ['result'=>false,'items'=>[],'error'=>$accounts['error']];
-		foreach ($accounts['items'] as $account) {
-			$locations = $this->googleLocations($integration,$account['value']);
-			if (!$locations['result']) return ['result'=>false,'items'=>[],'error'=>$locations['error']];
-			foreach ($locations['items'] as $location) $choices[] = [
-				'name'=>$account['name'].' · '.$location['name'],
-				'value'=>json_encode(['account_name'=>$account['value'],'location_name'=>$location['value'],'location_title'=>$location['name']],JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-			];
-		}
-		return ['result'=>true,'items'=>$choices,'error'=>''];
-	}
-
-	public function googleOAuthError($error) {
-		$error = strtolower(trim((string) $error));
-		if ($error == '') return false;
-		foreach (['oauth_unavailable','refresh_token_missing','access_token_missing','account_unavailable','provider_unavailable','provider_or_client_unavailable','invalid_grant','invalid_client','unauthorized_client','access_denied'] as $needle) {
-			if ($error == $needle || strpos($error,$needle.':') === 0) return true;
-		}
-		foreach (['bridge_refresh','refresh_http','invalid authentication credentials'] as $needle) {
-			if (strpos($error,$needle) !== false) return true;
-		}
-		return false;
+	public function providerOAuthError($provider, $error) {
+		$provider = $this->provider($provider);
+		return $provider && method_exists($provider,'oauthError') ? $provider->oauthError($error) : false;
 	}
 
 	public function forceSyncIntegration($id) {
@@ -296,57 +250,8 @@ class FiCMSReviews {
 
 	public function syncIntegration($integration = [], $force = false) {
 		$integration = $this->normalizeIntegration($integration);
-		if ($integration['provider'] == 'google') return $this->syncGoogle($integration,$force);
-		return ['result'=>false,'skipped'=>1,'count'=>0,'imported'=>0,'updated'=>0,'error'=>'provider_unavailable'];
-	}
-
-	public function syncGoogle($integration = [], $force = false) {
-		$integration = $this->normalizeIntegration($integration);
-		$result = ['result'=>false,'skipped'=>0,'count'=>0,'imported'=>0,'updated'=>0,'error'=>''];
-		if ($integration['active'] != 1) {
-			$result['skipped'] = 1;
-			$result['result'] = true;
-			return $result;
-		}
-		if (!$force && function_exists('helper__system_runtime') && !helper__system_runtime('reviews_sync_'.$integration['id'],24,false,'hours')) {
-			$result['skipped'] = 1;
-			$result['result'] = true;
-			return $result;
-		}
-		$integration = $this->resolveGoogleTarget($integration);
-		if (trim((string) ($integration['target']['account_name'] ?? '')) == '' || trim((string) ($integration['target']['location_name'] ?? '')) == '') {
-			$result['skipped'] = 1;
-			$result['error'] = 'google_location_missing';
-			return $result;
-		}
-		if (!class_exists('\google\BusinessProfile')) {
-			$result['error'] = 'google_unavailable';
-			return $this->finishIntegrationSync($integration,$result);
-		}
-
-		$google = new \google\BusinessProfile($integration['account_ref']);
-		$pageToken = '';
-		$page = 0;
-		do {
-			$response = $google->reviews($integration['target']['account_name'],$integration['target']['location_name'],50,$pageToken,'updateTime desc');
-			if (!is_array($response)) {
-				$result['error'] = $this->googleLastError($google);
-				return $this->finishIntegrationSync($integration,$result);
-			}
-			foreach ($response['reviews'] ?? [] as $review) {
-				$state = $this->importGoogleReview($review,$integration);
-				$result['count']++;
-				if ($state == 'imported') $result['imported']++;
-				if ($state == 'updated') $result['updated']++;
-			}
-			$pageToken = trim((string) ($response['nextPageToken'] ?? ''));
-			$page++;
-		} while ($pageToken != '' && $page < 10);
-
-		$result['result'] = true;
-		$this->data['updated'] = intval($_SERVER['now'] ?? time());
-		$this->write();
-		return $this->finishIntegrationSync($integration,$result);
+		$provider = $this->provider($integration['provider']);
+		return $provider ? $provider->sync($integration,$force) : ['result'=>false,'skipped'=>1,'count'=>0,'imported'=>0,'updated'=>0,'error'=>'provider_unavailable'];
 	}
 
 	public function admin($filter, $language) {
@@ -399,13 +304,15 @@ class FiCMSReviews {
 	}
 
 	private function load() {
-		$data = ['reviews'=>[],'updated'=>0];
+		$data = ['reviews'=>[],'updated'=>0,'ratings'=>$this->emptyRatings(),'provider_refresh'=>[]];
 		if (is_file($this->dataFile)) {
 			$loaded = $this->decode(file_get_contents($this->dataFile));
 			if (is_array($loaded)) $data = array_merge($data,$loaded);
 		}
 		if (!isset($data['reviews']) || !is_array($data['reviews'])) $data['reviews'] = [];
 		foreach ($data['reviews'] as $id => $entry) $data['reviews'][$id] = $this->normalizeEntry($id,$entry);
+		if (!is_array($data['provider_refresh'] ?? null)) $data['provider_refresh'] = [];
+		$data['ratings'] = $this->aggregateRatings($data['reviews']);
 		return $data;
 	}
 
@@ -422,10 +329,27 @@ class FiCMSReviews {
 		return $data;
 	}
 
-	private function write() {
+	private function loadProviderClasses() {
+		$providers = [];
+		foreach (get_declared_classes() as $class) {
+			if (!is_subclass_of($class,'FiCMSReviewsProvider')) continue;
+			$key = trim((string) $class::key());
+			if (!$this->validProvider($key)) continue;
+			$providers[$key] = $class;
+		}
+		ksort($providers);
+		return $providers;
+	}
+
+	public function write() {
+		$this->data['ratings'] = $this->aggregateRatings($this->data['reviews']);
 		if (function_exists('helper__files_write')) return helper__files_write($this->dataFile,$this->data,true,true);
 		if (!is_dir(dirname($this->dataFile))) mkdir(dirname($this->dataFile),0775,true);
 		return file_put_contents($this->dataFile,json_encode($this->data,JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)) !== false;
+	}
+
+	public function touchData() {
+		$this->data['updated'] = intval($_SERVER['now'] ?? time());
 	}
 
 	private function writeIntegrations() {
@@ -438,12 +362,14 @@ class FiCMSReviews {
 		if (!is_array($entry)) $entry = [];
 		$entry['id'] = trim((string) ($entry['id'] ?? $id));
 		$entry['lid'] = $this->normalizeLanguages($entry['lid'] ?? ['all'],false);
-		foreach (['author','source','text'] as $field) $entry[$field] = $this->normalizeText($entry[$field] ?? []);
+		foreach (['author','source'] as $field) $entry[$field] = $this->normalizePlainText($entry[$field] ?? '');
+		$entry['text'] = $this->normalizeText($entry['text'] ?? []);
 		$entry['rating'] = max(1,min(5,intval($entry['rating'] ?? 5)));
 		$entry['date'] = intval($entry['date'] ?? 0);
 		$entry['published'] = !empty($entry['published']) ? 1 : 0;
 		$entry['featured'] = !empty($entry['featured']) ? 1 : 0;
-		$entry['provider'] = $this->validProvider($entry['provider'] ?? 'local') ? trim((string) $entry['provider']) : 'local';
+		$entry['provider'] = trim((string) ($entry['provider'] ?? 'local'));
+		if (!$this->validProvider($entry['provider'])) $entry['provider'] = 'local';
 		$entry['source_type'] = trim((string) ($entry['source_type'] ?? ($entry['provider'] == 'local' ? 'local' : 'provider')));
 		$entry['external_id'] = trim((string) ($entry['external_id'] ?? ''));
 		$entry['external_updated'] = intval($entry['external_updated'] ?? 0);
@@ -454,11 +380,12 @@ class FiCMSReviews {
 
 	private function row($id, $entry, $language) {
 		$entry = $this->normalizeEntry($id,$entry);
-		$entry['author'] = $this->resolveText($entry['author'],$language);
+		$entry['author'] = trim((string) $entry['author']);
 		$entry['author_initials'] = $this->initials($entry['author']);
-		$entry['source'] = $this->resolveText($entry['source'],$language);
+		$entry['source'] = trim((string) $entry['source']);
 		$entry['text'] = $this->resolveText($entry['text'],$language);
-		if ($entry['provider'] == 'google') $entry['text'] = $this->cleanGoogleTranslation($entry['text']);
+		$provider = $this->provider($entry['provider']);
+		if ($provider) $entry['text'] = $provider->displayText($entry['text'],$language);
 		$entry['sort_id'] = $id;
 		$entry['search'] = trim($id.' '.$entry['author'].' '.$entry['source'].' '.$entry['text'].' '.$entry['provider']);
 		return $entry;
@@ -492,6 +419,14 @@ class FiCMSReviews {
 		return $value;
 	}
 
+	private function normalizePlainText($value) {
+		$value = $this->decodeText($value);
+		if (!is_array($value)) return trim((string) $value);
+		if (isset($value[$this->defaultLanguage]) && trim((string) $value[$this->defaultLanguage]) !== '') return trim((string) $value[$this->defaultLanguage]);
+		foreach ($value as $text) if (trim((string) $text) !== '') return trim((string) $text);
+		return '';
+	}
+
 	private function resolveText($value, $language) {
 		$value = $this->normalizeText($value);
 		if (function_exists('language__from_array')) return trim((string) language__from_array($value,$language));
@@ -501,12 +436,13 @@ class FiCMSReviews {
 		return '';
 	}
 
-	private function cleanGoogleTranslation($text) {
-		$text = trim(str_replace(["\r\n","\r"],"\n",(string) $text));
-		if ($text == '' || stripos($text,'Translated by Google') === false) return $text;
-		if (preg_match('/^(.*?)\n*\s*\(Translated by Google\).*$/su',$text,$match) && trim($match[1]) != '') return trim($match[1]);
-		if (preg_match('/\(Original\)\s*(.*)$/su',$text,$match) && trim($match[1]) != '') return trim($match[1]);
-		return trim(preg_replace('/^\s*\(Translated by Google\)\s*$/mi','',$text));
+	private function textLanguages($text) {
+		$languages = [];
+		foreach ($this->normalizeText($text) as $language => $value) {
+			if (trim((string) $value) == '') continue;
+			if (in_array($language,$this->installedLanguages,true)) $languages[] = $language;
+		}
+		return empty($languages) ? ['all'] : array_values(array_unique($languages));
 	}
 
 	private function normalizeLanguages($value, $strict) {
@@ -627,12 +563,19 @@ class FiCMSReviews {
 		];
 	}
 
-	private function normalizeIntegration($integration) {
+	public function normalizeIntegration($integration) {
 		if (!is_array($integration)) $integration = [];
-		$provider = $this->validProvider($integration['provider'] ?? '') ? trim((string) $integration['provider']) : 'google';
+		$provider = $this->validProvider($integration['provider'] ?? '') ? trim((string) $integration['provider']) : $this->defaultProvider();
 		$id = $this->validIntegrationId($integration['id'] ?? '') ? trim((string) $integration['id']) : $provider;
 		$target = is_array($integration['target'] ?? null) ? $integration['target'] : [];
-		return [
+		$config = is_array($integration['config'] ?? null) ? $integration['config'] : [];
+		$normalizedConfig = [];
+		foreach ($config as $key => $value) {
+			$key = preg_replace('/[^a-z0-9_-]+/i','',trim((string) $key));
+			if ($key == '' || is_array($value) || is_object($value)) continue;
+			$normalizedConfig[$key] = trim((string) $value);
+		}
+		$normalized = [
 			'id'=>$id,
 			'label'=>trim((string) ($integration['label'] ?? '')) != '' ? trim((string) ($integration['label'] ?? '')) : ucfirst($provider),
 			'provider'=>$provider,
@@ -643,32 +586,18 @@ class FiCMSReviews {
 				'location_name'=>trim((string) ($target['location_name'] ?? '')),
 				'location_title'=>trim((string) ($target['location_title'] ?? ''))
 			],
+			'config'=>$normalizedConfig,
 			'last_sync'=>intval($integration['last_sync'] ?? 0),
 			'last_error'=>trim((string) ($integration['last_error'] ?? '')),
 			'last_count'=>intval($integration['last_count'] ?? 0),
 			'last_imported'=>intval($integration['last_imported'] ?? 0),
 			'last_updated'=>intval($integration['last_updated'] ?? 0)
 		];
+		$providerInstance = $this->provider($provider);
+		return $providerInstance ? $providerInstance->normalizeIntegration($normalized) : $normalized;
 	}
 
-	private function resolveGoogleTarget($integration) {
-		$integration = $this->normalizeIntegration($integration);
-		if (trim((string) ($integration['target']['account_name'] ?? '')) != '' && trim((string) ($integration['target']['location_name'] ?? '')) != '') return $integration;
-		$choices = $this->googleLocationChoices($integration);
-		if (!$choices['result'] || count($choices['items']) != 1) return $integration;
-		$location = $this->decode($choices['items'][0]['value']);
-		if (!is_array($location)) return $integration;
-		$integration['target'] = [
-			'account_name'=>trim((string) ($location['account_name'] ?? '')),
-			'location_name'=>trim((string) ($location['location_name'] ?? '')),
-			'location_title'=>trim((string) ($location['location_title'] ?? ''))
-		];
-		if ($integration['last_error'] == 'google_location_missing') $integration['last_error'] = '';
-		$this->storeIntegration($integration);
-		return $integration;
-	}
-
-	private function storeIntegration($integration) {
+	public function storeIntegration($integration) {
 		$integration = $this->normalizeIntegration($integration);
 		foreach ($this->integrations['integrations'] as $key => $entry) {
 			if ($entry['id'] != $integration['id']) continue;
@@ -681,30 +610,34 @@ class FiCMSReviews {
 		return $this->writeIntegrations();
 	}
 
-	private function importGoogleReview($review, $integration) {
-		$integration = $this->normalizeIntegration($integration);
-		$externalId = trim((string) ($review['reviewId'] ?? ($review['name'] ?? '')));
-		$id = $this->findProviderReview('google',$externalId);
-		if ($id == '') $id = $this->findGoogleDuplicate($review);
+	public function importProviderReview($provider, $review, $id = '') {
+		$provider = $this->validProvider($provider) ? trim((string) $provider) : 'provider';
+		$externalId = trim((string) ($review['external_id'] ?? ''));
+		$id = $this->validId($id) ? trim((string) $id) : $this->findProviderReview($provider,$externalId);
 		$state = $id == '' ? 'imported' : 'updated';
-		if ($id == '') $id = $this->createProviderId('google',$externalId);
+		if ($id == '') $id = $this->createProviderId($provider,$externalId);
 
-		$existing = $this->data['reviews'][$id] ?? ['id'=>$id,'created'=>intval($_SERVER['now'] ?? time()),'published'=>1,'featured'=>0,'lid'=>['all']];
+		$existing = $this->normalizeEntry($id,$this->data['reviews'][$id] ?? ['id'=>$id,'created'=>intval($_SERVER['now'] ?? time()),'published'=>1,'featured'=>0,'lid'=>[]]);
+		$text = $existing['text'];
+		foreach ($this->normalizeText($review['text'] ?? []) as $language => $value) {
+			if (trim((string) $value) == '') continue;
+			$text[$language] = trim((string) $value);
+		}
 		$entry = [
 			'id'=>$id,
 			'created'=>$existing['created'] ?? intval($_SERVER['now'] ?? time()),
-			'author'=>[$this->defaultLanguage=>trim((string) ($review['reviewer']['displayName'] ?? ''))],
-			'source'=>[$this->defaultLanguage=>$integration['target']['location_title'] != '' ? $integration['target']['location_title'] : $integration['label']],
-			'rating'=>$this->googleRating($review['starRating'] ?? 5),
-			'text'=>[$this->defaultLanguage=>$this->cleanGoogleTranslation($review['comment'] ?? '')],
-			'lid'=>$existing['lid'] ?? ['all'],
-			'date'=>$this->googleTime($review['createTime'] ?? ''),
+			'author'=>$this->normalizePlainText($review['author'] ?? $existing['author']),
+			'source'=>$this->normalizePlainText($review['source'] ?? $existing['source']),
+			'rating'=>max(1,min(5,intval($review['rating'] ?? $existing['rating']))),
+			'text'=>$text,
+			'lid'=>$this->textLanguages($text),
+			'date'=>intval($review['date'] ?? $existing['date']),
 			'published'=>intval($existing['published'] ?? 1),
 			'featured'=>intval($existing['featured'] ?? 0),
-			'provider'=>'google',
+			'provider'=>$provider,
 			'source_type'=>'provider',
 			'external_id'=>$externalId,
-			'external_updated'=>$this->googleTime($review['updateTime'] ?? ''),
+			'external_updated'=>intval($review['external_updated'] ?? $existing['external_updated']),
 			'imported'=>1,
 			'read_only'=>1,
 			'updated'=>intval($_SERVER['now'] ?? time())
@@ -713,7 +646,7 @@ class FiCMSReviews {
 		return $state;
 	}
 
-	private function finishIntegrationSync($integration, $result) {
+	public function finishIntegrationSync($integration, $result) {
 		$integration = $this->normalizeIntegration($integration);
 		$integration['last_sync'] = intval($_SERVER['now'] ?? time());
 		$integration['last_error'] = trim((string) ($result['error'] ?? ''));
@@ -724,27 +657,11 @@ class FiCMSReviews {
 		return $result;
 	}
 
-	private function findProviderReview($provider, $externalId) {
+	public function findProviderReview($provider, $externalId) {
 		if (trim((string) $externalId) == '') return '';
 		foreach ($this->data['reviews'] as $id => $entry) {
 			$entry = $this->normalizeEntry($id,$entry);
 			if ($entry['provider'] == $provider && $entry['external_id'] == $externalId) return $id;
-		}
-		return '';
-	}
-
-	private function findGoogleDuplicate($review) {
-		$author = trim((string) ($review['reviewer']['displayName'] ?? ''));
-		$text = trim((string) ($review['comment'] ?? ''));
-		$rating = $this->googleRating($review['starRating'] ?? 5);
-		$date = $this->googleTime($review['createTime'] ?? '');
-		foreach ($this->data['reviews'] as $id => $entry) {
-			$row = $this->row($id,$entry,$this->defaultLanguage);
-			if ($row['provider'] != 'google') continue;
-			if ($row['external_id'] != '') continue;
-			if (intval($row['rating']) != $rating || intval($row['date']) != $date) continue;
-			if (trim((string) $row['author']) != $author || trim((string) $row['text']) != $text) continue;
-			return $id;
 		}
 		return '';
 	}
@@ -754,22 +671,79 @@ class FiCMSReviews {
 		return isset($this->data['reviews'][$id]) ? $id.'_'.bin2hex(random_bytes(2)) : $id;
 	}
 
-	private function googleRating($value) {
-		$ratings = ['ONE'=>1,'TWO'=>2,'THREE'=>3,'FOUR'=>4,'FIVE'=>5];
-		if (is_numeric($value)) return max(1,min(5,intval($value)));
-		return $ratings[strtoupper(trim((string) $value))] ?? 5;
+	public function syncLanguages() {
+		$languages = array_values(array_unique(array_filter(array_map([$this,'normalizeSyncLanguage'],$this->installedLanguages))));
+		return empty($languages) ? [$this->defaultLanguage] : $languages;
 	}
 
-	private function googleTime($value) {
-		$time = strtotime(trim((string) $value));
-		return $time === false ? intval($_SERVER['now'] ?? time()) : intval($time);
+	public function normalizeSyncLanguage($language) {
+		$language = strtolower(trim((string) $language));
+		$language = preg_replace('/[^a-z0-9_-]+/','',$language);
+		return $language != '' ? $language : $this->defaultLanguage;
 	}
 
-	private function googleLastError($google) {
-		$last = method_exists($google,'last') ? $google->last() : [];
-		if (isset($last['body']['error']['message'])) return trim((string) $last['body']['error']['message']);
-		if (isset($last['error']) && trim((string) $last['error']) !== '') return trim((string) $last['error']);
-		return 'google_request_failed';
+	public function acceptLanguage($language) {
+		$language = $this->normalizeSyncLanguage($language);
+		return $language == $this->defaultLanguage ? $language : $language.','.$this->defaultLanguage.';q=0.7';
+	}
+
+	public function providerRefreshRequired($provider) {
+		$provider = $this->validProvider($provider) ? trim((string) $provider) : '';
+		return $provider != '' && trim((string) ($this->data['provider_refresh'][$provider] ?? '')) != self::PROVIDER_REFRESH_VERSION;
+	}
+
+	public function markProviderRefresh($provider) {
+		$provider = $this->validProvider($provider) ? trim((string) $provider) : '';
+		if ($provider == '') return;
+		if (!is_array($this->data['provider_refresh'] ?? null)) $this->data['provider_refresh'] = [];
+		$this->data['provider_refresh'][$provider] = self::PROVIDER_REFRESH_VERSION;
+	}
+
+	public function providerRefreshCutoff() {
+		$time = strtotime(self::PROVIDER_REFRESH_CUTOFF);
+		return $time === false ? 0 : intval($time);
+	}
+
+	public function removeImportedProviderReviews($provider, $cutoff) {
+		$removed = 0;
+		foreach ($this->data['reviews'] as $id => $entry) {
+			$entry = $this->normalizeEntry($id,$entry);
+			if ($entry['provider'] != $provider || intval($entry['imported']) != 1) continue;
+			if ($this->entryImportTime($entry) >= intval($cutoff)) continue;
+			unset($this->data['reviews'][$id]);
+			$removed++;
+		}
+		if ($removed > 0) $this->data['updated'] = intval($_SERVER['now'] ?? time());
+		return $removed;
+	}
+
+	private function entryImportTime($entry) {
+		foreach (['updated','created','external_updated'] as $field) if (intval($entry[$field] ?? 0) > 0) return intval($entry[$field]);
+		return 0;
+	}
+
+	private function emptyRatings() {
+		return ['total'=>['count'=>0,'sum'=>0,'average'=>0],'providers'=>[]];
+	}
+
+	private function aggregateRatings($reviews) {
+		$ratings = $this->emptyRatings();
+		if (!is_array($reviews)) return $ratings;
+		foreach ($reviews as $id => $entry) {
+			$entry = $this->normalizeEntry($id,$entry);
+			if (intval($entry['published']) != 1) continue;
+			$rating = max(1,min(5,intval($entry['rating'])));
+			$provider = $entry['provider'] != '' ? $entry['provider'] : 'local';
+			if (!isset($ratings['providers'][$provider])) $ratings['providers'][$provider] = ['count'=>0,'sum'=>0,'average'=>0];
+			$ratings['total']['count']++;
+			$ratings['total']['sum'] += $rating;
+			$ratings['providers'][$provider]['count']++;
+			$ratings['providers'][$provider]['sum'] += $rating;
+		}
+		if ($ratings['total']['count'] > 0) $ratings['total']['average'] = round($ratings['total']['sum'] / $ratings['total']['count'],1);
+		foreach ($ratings['providers'] as $provider => $rating) if ($rating['count'] > 0) $ratings['providers'][$provider]['average'] = round($rating['sum'] / $rating['count'],1);
+		ksort($ratings['providers']);
+		return $ratings;
 	}
 
 	private function timer($name) {
@@ -777,7 +751,7 @@ class FiCMSReviews {
 		return $file != '' && is_file($file) ? intval(file_get_contents($file)) : 0;
 	}
 
-	private function deleteTimer($name) {
+	public function deleteTimer($name) {
 		$file = defined('CACHEPATH') ? CACHEPATH.'/timers/.'.$name : '';
 		if ($file == '' || !is_file($file)) return false;
 		if (function_exists('helper__files_delete')) return helper__files_delete($file,true);
@@ -824,7 +798,7 @@ class FiCMSReviews {
 		return json_last_error() == JSON_ERROR_NONE ? $decoded : $value;
 	}
 
-	private function decode($value) {
+	public function decode($value) {
 		if (function_exists('helper__json_convert')) return helper__json_convert($value);
 		if (!is_string($value)) return $value;
 		$decoded = json_decode($value,true);
