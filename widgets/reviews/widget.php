@@ -54,6 +54,8 @@ if ($reviews['structure_file'] == '') {
 	return;
 }
 
+$_SERVER['load_services']['reviews'] = true;
+
 if (isset($service['temp']['data']['add']) && intval($service['temp']['data']['add']) > 0) $reviews['limit'] = intval($service['temp']['data']['add']);
 if (isset($reviews['block']['option_widgetnum']) && intval($reviews['block']['option_widgetnum']) > 0) $reviews['limit'] = intval($reviews['block']['option_widgetnum']);
 if (isset($reviews['block']['option_widgetvalue']) && intval($reviews['block']['option_widgetvalue']) > 0) $reviews['min_rating'] = max(1,min(5,intval($reviews['block']['option_widgetvalue'])));
