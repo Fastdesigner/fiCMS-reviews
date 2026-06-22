@@ -51,7 +51,7 @@ Widget display options:
 ## Markup
 
 The default widget frame is in `widgets/reviews/frame.html`. Repeated item markup lives in `widgets/reviews/blocks/*.html`; block partials must not contain `[repeat=...]`.
-Review item placeholders include `author`, `author_initials`, `source`, `text`, `rating_value`, `rating_label`, `rating_stars`, `date`, and `datetime`.
+Review item placeholders include `author`, `author_initials`, `source`, `text`, `rating_value`, `rating_label`, `rating_stars`, `date`, and `datetime`. Summary placeholders include `summary_rating_value` for CSS-driven `[data-rating] > [data-rateme]` visuals and `summary_rating_stars` for legacy text-star templates.
 
 Designs can override it with:
 - `designs/<design>/widgets/review/frame.html`

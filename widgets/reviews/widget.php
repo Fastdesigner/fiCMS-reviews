@@ -25,6 +25,7 @@ $reviews = [
 	'summary_rows'=>[],
 	'summary_items'=>[],
 	'summary'=>[],
+	'uses_rating_stars'=>false,
 	'replace'=>[
 		'count'=>0,
 		'layout'=>'list',
@@ -92,6 +93,7 @@ foreach ($reviews['sections'] as $reviews['section']) {
 }
 if (!isset($reviews['structure'][$reviews['layout']]) || $reviews['structure'][$reviews['layout']] == '') $reviews['layout'] = 'list';
 $reviews['selected'] = $reviews['layout'];
+$reviews['uses_rating_stars'] = strpos($reviews['structure'][$reviews['selected']],'###rating_stars###') !== false;
 
 // Fragment-Cache: Output hängt an Block-Optionen (block:<id>), Sprache (Scope) und den
 // Review-Quelldateien (data/reviews.json + integrations.json, vom Sync neu geschrieben → mtime).
@@ -148,7 +150,7 @@ foreach ($reviews['rows'] as $reviews['row']) {
 		'rating'=>$reviews['rating'],
 		'rating_value'=>$reviews['rating'],
 		'rating_label'=>htmlspecialchars(language__get_parsed($_SESSION['language'],'_reviews_rating_label',['rating'=>$reviews['rating']]),ENT_QUOTES,'UTF-8'),
-		'rating_stars'=>str_repeat('★',$reviews['rating']),
+		'rating_stars'=>$reviews['uses_rating_stars'] ? str_repeat('★',$reviews['rating']) : '',
 		'date'=>format__date_relative(intval($reviews['row']['date'] ?? $_SERVER['now']),'date',$_SESSION['language']),
 		'datetime'=>date('Y-m-d',intval($reviews['row']['date'] ?? $_SERVER['now'])),
 		'featured'=>intval($reviews['row']['featured'] ?? 0),
@@ -171,6 +173,7 @@ foreach ($reviews['rows'] as $reviews['row']) {
 if (count($reviews['rows']) > 0 || count($reviews['summary_rows']) > 0) {
 	if ($reviews['summary_mode'] == 'global' && $reviews['structure']['summary'] !== '') {
 		$reviews['summary'] = $reviews['instance']->summary($reviews['summary_rows'],$_SESSION['language']);
+		$reviews['summary']['rating_value'] = max(0,min(5,intval(round($reviews['summary']['rating_average']))));
 		$reviews['provider_logo'] = '';
 		$reviews['line'] = $reviews['structure']['summary'];
 		$reviews['summary_items'][] = parser__replace($reviews['line'],[
@@ -178,6 +181,7 @@ if (count($reviews['rows']) > 0 || count($reviews['summary_rows']) > 0) {
 			'average'=>htmlspecialchars($reviews['summary']['rating_average_label'],ENT_QUOTES,'UTF-8'),
 			'average_label'=>htmlspecialchars($reviews['summary']['rating_label'],ENT_QUOTES,'UTF-8'),
 			'summary_label'=>htmlspecialchars(language__get($_SESSION['language'],'_reviews_widget_summary_global_label'),ENT_QUOTES,'UTF-8'),
+			'summary_rating_value'=>$reviews['summary']['rating_value'],
 			'summary_rating_stars'=>htmlspecialchars($reviews['summary']['rating_stars'],ENT_QUOTES,'UTF-8'),
 			'rating_1_count'=>$reviews['summary']['rating_1_count'],
 			'rating_2_count'=>$reviews['summary']['rating_2_count'],
@@ -194,6 +198,7 @@ if (count($reviews['rows']) > 0 || count($reviews['summary_rows']) > 0) {
 		foreach ($reviews['summary_rows'] as $reviews['summary_row']) $reviews['summary_groups'][$reviews['summary_row']['provider']][] = $reviews['summary_row'];
 		foreach ($reviews['summary_groups'] as $reviews['provider'] => $reviews['summary_group']) {
 			$reviews['summary'] = $reviews['instance']->summary($reviews['summary_group'],$_SESSION['language']);
+			$reviews['summary']['rating_value'] = max(0,min(5,intval(round($reviews['summary']['rating_average']))));
 			$reviews['provider_logo'] = $reviews['instance']->getProviderLogo($reviews['provider']);
 			$reviews['provider_name'] = $reviews['providers'][$reviews['provider']]['name'] ?? ucfirst($reviews['provider']);
 			$reviews['line'] = $reviews['structure']['summary'];
@@ -202,6 +207,7 @@ if (count($reviews['rows']) > 0 || count($reviews['summary_rows']) > 0) {
 				'average'=>htmlspecialchars($reviews['summary']['rating_average_label'],ENT_QUOTES,'UTF-8'),
 				'average_label'=>htmlspecialchars($reviews['summary']['rating_label'],ENT_QUOTES,'UTF-8'),
 				'summary_label'=>htmlspecialchars($reviews['provider_name'],ENT_QUOTES,'UTF-8'),
+				'summary_rating_value'=>$reviews['summary']['rating_value'],
 				'summary_rating_stars'=>htmlspecialchars($reviews['summary']['rating_stars'],ENT_QUOTES,'UTF-8'),
 				'rating_1_count'=>$reviews['summary']['rating_1_count'],
 				'rating_2_count'=>$reviews['summary']['rating_2_count'],
@@ -216,11 +222,13 @@ if (count($reviews['rows']) > 0 || count($reviews['summary_rows']) > 0) {
 	}
 	$reviews['summary_base'] = count($reviews['summary_rows']) > 0 ? $reviews['summary_rows'] : $reviews['rows'];
 	$reviews['summary'] = $reviews['instance']->summary($reviews['summary_base'],$_SESSION['language']);
+	$reviews['summary']['rating_value'] = max(0,min(5,intval(round($reviews['summary']['rating_average']))));
 	$reviews['replace'] = array_merge($reviews['replace'],[
 		'count'=>$reviews['show_items'] == 1 ? count($reviews['rows']) : count($reviews['summary_rows']),
 		'layout'=>$reviews['selected'],
 		'average'=>htmlspecialchars($reviews['summary']['rating_average_label'],ENT_QUOTES,'UTF-8'),
 		'average_label'=>htmlspecialchars($reviews['summary']['rating_label'],ENT_QUOTES,'UTF-8'),
+		'summary_rating_value'=>$reviews['summary']['rating_value'],
 		'summary_rating_stars'=>htmlspecialchars($reviews['summary']['rating_stars'],ENT_QUOTES,'UTF-8'),
 		'rating_1_count'=>$reviews['summary']['rating_1_count'],
 		'rating_2_count'=>$reviews['summary']['rating_2_count'],
