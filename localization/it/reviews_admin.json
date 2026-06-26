@@ -84,5 +84,20 @@
   "_reviews_widget_language_all": "Tutte le recensioni corrispondenti",
   "_reviews_widget_show_rating": "Mostra valutazione",
   "_reviews_widget_show_source": "Mostra azienda o luogo",
-  "_reviews_widget_show_date": "Mostra data"
+  "_reviews_widget_show_date": "Mostra data",
+  "_reports_reviews": "Recensioni",
+  "_reports_reviews_description": "Panoramica mensile della qualità delle recensioni, delle nuove voci e delle fonti.",
+  "_reports_reviews_quality": "Qualità delle recensioni",
+  "_reports_reviews_average": "Media",
+  "_reports_reviews_new": "Nuove recensioni",
+  "_reports_reviews_published": "Pubblicate",
+  "_reports_reviews_unpublished": "Non pubblicate",
+  "_reports_reviews_featured": "In evidenza",
+  "_reports_reviews_distribution": "Distribuzione delle stelle",
+  "_reports_reviews_sources": "Fonti",
+  "_reports_reviews_recent": "Nuove recensioni",
+  "_reports_reviews_5_star": "5 stelle",
+  "_reports_reviews_4_star": "4 stelle",
+  "_reports_reviews_3_star": "3 stelle",
+  "_reports_reviews_1_2_star": "1-2 stelle"
 }

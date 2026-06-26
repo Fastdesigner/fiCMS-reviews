@@ -84,5 +84,20 @@
   "_reviews_widget_language_all": "Alle passenden Bewertungen",
   "_reviews_widget_show_rating": "Bewertung anzeigen",
   "_reviews_widget_show_source": "Firma oder Ort anzeigen",
-  "_reviews_widget_show_date": "Datum anzeigen"
+  "_reviews_widget_show_date": "Datum anzeigen",
+  "_reports_reviews": "Bewertungen",
+  "_reports_reviews_description": "Monatlicher Überblick über Bewertungsqualität, neue Stimmen und Quellen.",
+  "_reports_reviews_quality": "Bewertungsqualität",
+  "_reports_reviews_average": "Durchschnitt",
+  "_reports_reviews_new": "Neue Bewertungen",
+  "_reports_reviews_published": "Veröffentlicht",
+  "_reports_reviews_unpublished": "Unveröffentlicht",
+  "_reports_reviews_featured": "Hervorgehoben",
+  "_reports_reviews_distribution": "Sterneverteilung",
+  "_reports_reviews_sources": "Quellen",
+  "_reports_reviews_recent": "Neue Bewertungen",
+  "_reports_reviews_5_star": "5 Sterne",
+  "_reports_reviews_4_star": "4 Sterne",
+  "_reports_reviews_3_star": "3 Sterne",
+  "_reports_reviews_1_2_star": "1-2 Sterne"
 }

@@ -84,5 +84,20 @@
   "_reviews_widget_language_all": "All matching reviews",
   "_reviews_widget_show_rating": "Show rating",
   "_reviews_widget_show_source": "Show company or place",
-  "_reviews_widget_show_date": "Show date"
+  "_reviews_widget_show_date": "Show date",
+  "_reports_reviews": "Reviews",
+  "_reports_reviews_description": "Monthly overview of review quality, new voices and sources.",
+  "_reports_reviews_quality": "Review quality",
+  "_reports_reviews_average": "Average",
+  "_reports_reviews_new": "New reviews",
+  "_reports_reviews_published": "Published",
+  "_reports_reviews_unpublished": "Unpublished",
+  "_reports_reviews_featured": "Featured",
+  "_reports_reviews_distribution": "Star distribution",
+  "_reports_reviews_sources": "Sources",
+  "_reports_reviews_recent": "New reviews",
+  "_reports_reviews_5_star": "5 stars",
+  "_reports_reviews_4_star": "4 stars",
+  "_reports_reviews_3_star": "3 stars",
+  "_reports_reviews_1_2_star": "1-2 stars"
 }

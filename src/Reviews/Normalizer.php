@@ -31,7 +31,7 @@ class FiCMSReviewsNormalizer {
 		$entry['external_updated'] = intval($entry['external_updated'] ?? 0);
 		$entry['imported'] = !empty($entry['imported']) ? 1 : 0;
 		$entry['read_only'] = !empty($entry['read_only']) ? 1 : 0;
-		if ($entry['imported'] == 1 && in_array('all',$entry['lid'],true) && count($this->installedLanguages) == 1) $entry['lid'] = [$this->installedLanguages[0]];
+		if ($entry['imported'] == 1 || $entry['source_type'] == 'provider') $entry['lid'] = $this->reviewLanguages($entry,$entry['text']);
 		return $entry;
 	}
 
@@ -63,11 +63,16 @@ class FiCMSReviewsNormalizer {
 	}
 
 	public function reviewLanguages($review, $text) {
+		$textLanguages = $this->textLanguages($text);
+		if (!in_array('all',$textLanguages,true)) {
+			if (count($textLanguages) > 1) return ['all'];
+			if (!array_diff($this->installedLanguages,$textLanguages)) return ['all'];
+			return $textLanguages;
+		}
 		$languages = $this->languages($review['languages'] ?? ($review['lid'] ?? []),true);
-		if (!in_array('all',$languages,true)) return $languages;
-		$languages = $this->textLanguages($text);
-		if (!in_array('all',$languages,true)) return $languages;
-		return count($this->installedLanguages) == 1 ? [$this->installedLanguages[0]] : ['all'];
+		if (in_array('all',$languages,true)) return count($this->installedLanguages) == 1 ? [$this->installedLanguages[0]] : ['all'];
+		if (count($languages) > 1 || !array_diff($this->installedLanguages,$languages)) return ['all'];
+		return $languages;
 	}
 
 	public function languages($value, $strict) {

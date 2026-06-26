@@ -16,6 +16,7 @@ class FiCMSReviewsRows {
 		$entry['author'] = trim((string) $entry['author']);
 		$entry['author_initials'] = $this->initials($entry['author']);
 		$entry['source'] = trim((string) $entry['source']);
+		$entry['text_lid'] = $this->normalizer->textLanguages($entry['text']);
 		$entry['text'] = $this->normalizer->resolveText($entry['text'],$language);
 		$entry['text'] = $this->reviews->providerDisplayText($entry['provider'],$entry['text'],$language);
 		$entry['has_text'] = trim((string) $entry['text']) !== '' ? 1 : 0;
@@ -49,7 +50,7 @@ class FiCMSReviewsRows {
 			if (!$this->matchesWidgetProvider($row['provider'],$filter)) continue;
 			if (intval($row['rating']) < intval($filter['min_rating'])) continue;
 			if (intval($filter['featured']) == 1 && empty($row['featured'])) continue;
-			if (!$this->matchesWidgetLanguage($row['lid'],$filter,$language)) continue;
+			if (!$this->matchesWidgetLanguage($row,$filter,$language)) continue;
 			if (empty($row['has_text'])) continue;
 			$rows[] = $row;
 		}
@@ -65,7 +66,7 @@ class FiCMSReviewsRows {
 			$row = $this->row($id,$entry,$language);
 			if (empty($row['published'])) continue;
 			if (!$this->matchesWidgetProvider($row['provider'],$filter)) continue;
-			if (!$this->matchesWidgetLanguage($row['lid'],$filter,$language)) continue;
+			if (!$this->matchesWidgetLanguage($row,$filter,$language)) continue;
 			$rows[] = $row;
 		}
 		return $rows;
@@ -151,12 +152,14 @@ class FiCMSReviewsRows {
 		return true;
 	}
 
-	private function matchesWidgetLanguage($languages, $filter, $currentLanguage) {
+	private function matchesWidgetLanguage($row, $filter, $currentLanguage) {
 		if (in_array('all',$filter['language'],true)) return true;
-		if (in_array('current',$filter['language'],true)) return $this->matchesLanguage($languages,$currentLanguage);
-		$languages = $this->normalizer->languages($languages,false);
+		$languages = $this->normalizer->languages($row['lid'] ?? [],false);
+		$textLanguages = $this->normalizer->languages($row['text_lid'] ?? [],false);
+		if (in_array('current',$filter['language'],true)) return $this->matchesLanguage($languages,$currentLanguage) || $this->matchesLanguage($textLanguages,$currentLanguage);
 		if (in_array('all',$languages,true)) return true;
-		return count(array_intersect($filter['language'],$languages)) > 0;
+		if (in_array('all',$textLanguages,true)) return true;
+		return count(array_intersect($filter['language'],array_values(array_unique(array_merge($languages,$textLanguages))))) > 0;
 	}
 
 	private function matchesLanguage($languages, $language) {
