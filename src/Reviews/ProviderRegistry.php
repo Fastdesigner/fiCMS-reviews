@@ -36,6 +36,10 @@ class FiCMSReviewsProviderRegistry {
 	public function logo($provider = '') {
 		$provider = preg_replace('/[^a-z0-9_]/i','',trim((string) $provider));
 		if ($provider == '') return '';
+		if (class_exists('\oauth\OAuth') && method_exists('\oauth\OAuth','providers')) {
+			$oauthProviders = \oauth\OAuth::providers();
+			if (isset($oauthProviders[$provider]['image']) && trim((string) $oauthProviders[$provider]['image']) != '') return trim((string) $oauthProviders[$provider]['image']);
+		}
 		foreach (['svg','png','webp'] as $extension) {
 			$file = $this->basePath.'/assets/img/providers/'.$provider.'.'.$extension;
 			$path = (defined('PLUGINPATH') ? PLUGINPATH.'/'.basename($this->basePath) : trim($this->basePath,'/')).'/assets/img/providers/'.$provider.'.'.$extension;
