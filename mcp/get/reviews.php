@@ -35,7 +35,8 @@ $reviewsMcp['result'] = [
 	'published'=>intval($reviewsMcp['row']['published'] ?? 0),
 	'featured'=>intval($reviewsMcp['row']['featured'] ?? 0),
 	'provider'=>trim((string) ($reviewsMcp['row']['provider'] ?? 'local')),
-	'source_type'=>trim((string) ($reviewsMcp['row']['source_type'] ?? 'local'))
+	'source_type'=>trim((string) ($reviewsMcp['row']['source_type'] ?? 'local')),
+	'external_url'=>trim((string) ($reviewsMcp['row']['external_url'] ?? ''))
 ];
 if (($mcp['scope'] ?? 'user') === 'admin') $reviewsMcp['result']['data'] = $reviewsMcp['all'][$reviewsMcp['id']];
 return $reviewsMcp['result'];

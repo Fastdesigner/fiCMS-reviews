@@ -61,7 +61,7 @@ class FiCMSReviews {
 	}
 
 	public function blank($id = 'new') {
-		return ['id'=>$id,'author'=>'','source'=>'','rating'=>5,'text'=>[],'lid'=>['all'],'date'=>intval($_SERVER['now'] ?? time()),'published'=>($id == 'new' ? 1 : 0),'featured'=>0,'provider'=>'local','source_type'=>'local','external_id'=>'','external_updated'=>0,'imported'=>0,'read_only'=>0];
+		return ['id'=>$id,'author'=>'','source'=>'','rating'=>5,'text'=>[],'lid'=>['all'],'date'=>intval($_SERVER['now'] ?? time()),'published'=>($id == 'new' ? 1 : 0),'featured'=>0,'provider'=>'local','source_type'=>'local','external_id'=>'','external_url'=>'','external_updated'=>0,'imported'=>0,'read_only'=>0];
 	}
 
 	public function delete($id) {
@@ -96,6 +96,7 @@ class FiCMSReviews {
 			$entry['provider'] = 'local';
 			$entry['source_type'] = 'local';
 			$entry['external_id'] = '';
+			$entry['external_url'] = '';
 			$entry['external_updated'] = 0;
 			$entry['imported'] = 0;
 			$entry['read_only'] = 0;
@@ -418,6 +419,7 @@ class FiCMSReviews {
 			'provider'=>$provider,
 			'source_type'=>'provider',
 			'external_id'=>$externalId,
+			'external_url'=>$this->normalizer->url($review['external_url'] ?? ($existing['external_url'] ?? '')),
 			'external_updated'=>intval($review['external_updated'] ?? $existing['external_updated']),
 			'imported'=>1,
 			'read_only'=>1,

@@ -35,6 +35,7 @@ foreach ($reviewsMcp['instance']->all() as $reviewsMcp['id'] => $reviewsMcp['ent
 		'title'=>trim((string) ($reviewsMcp['row']['author'] ?? '')),
 		'text'=>mcp__text_snippet(trim((string) ($reviewsMcp['row']['text'] ?? '')),$search['terms'],180),
 		'published'=>intval($reviewsMcp['row']['published'] ?? 0),
+		'external_url'=>trim((string) ($reviewsMcp['row']['external_url'] ?? '')),
 		'full_version'=>['tool'=>'get','type'=>'reviews','id'=>$reviewsMcp['id']]
 	];
 }

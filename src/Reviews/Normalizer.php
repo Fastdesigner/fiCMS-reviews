@@ -28,6 +28,7 @@ class FiCMSReviewsNormalizer {
 		if (!self::validProviderKey($entry['provider'])) $entry['provider'] = 'local';
 		$entry['source_type'] = trim((string) ($entry['source_type'] ?? ($entry['provider'] == 'local' ? 'local' : 'provider')));
 		$entry['external_id'] = trim((string) ($entry['external_id'] ?? ''));
+		$entry['external_url'] = $this->url($entry['external_url'] ?? '');
 		$entry['external_updated'] = intval($entry['external_updated'] ?? 0);
 		$entry['imported'] = !empty($entry['imported']) ? 1 : 0;
 		$entry['read_only'] = !empty($entry['read_only']) ? 1 : 0;
@@ -45,6 +46,11 @@ class FiCMSReviewsNormalizer {
 
 	public function plainText($value) {
 		return $this->firstText($this->text($value),'');
+	}
+
+	public function url($value) {
+		$value = trim((string) $value);
+		return filter_var($value,FILTER_VALIDATE_URL) ? $value : '';
 	}
 
 	public function resolveText($value, $language) {

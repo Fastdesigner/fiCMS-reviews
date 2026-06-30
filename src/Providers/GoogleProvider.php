@@ -243,10 +243,11 @@ class FiCMSReviewsGoogleProvider extends FiCMSReviewsProvider {
 		$language = $this->reviews->normalizeSyncLanguage($language);
 		return [
 			'external_id'=>$this->reviewExternalId($review),
-			'author'=>trim((string) ($review['reviewer']['displayName'] ?? '')),
+			'external_url'=>$this->reviewUrl($review),
+			'author'=>$this->providerText($review['reviewer']['displayName'] ?? ''),
 			'source'=>$integration['target']['location_title'] != '' ? $integration['target']['location_title'] : $integration['label'],
 			'rating'=>$this->rating($review['starRating'] ?? 5),
-			'text'=>[$language=>self::commentForLanguage($review['comment'] ?? '',$language,$this->reviews->defaultLanguage())],
+			'text'=>[$language=>$this->providerText(self::commentForLanguage($review['comment'] ?? '',$language,$this->reviews->defaultLanguage()))],
 			'languages'=>[$language],
 			'date'=>$this->time($review['createTime'] ?? ''),
 			'external_updated'=>$this->time($review['updateTime'] ?? '')
@@ -257,8 +258,8 @@ class FiCMSReviewsGoogleProvider extends FiCMSReviewsProvider {
 		$externalId = $this->reviewExternalId($review);
 		$id = $this->reviews->findProviderReview('google',$externalId);
 		if ($id != '') return $id;
-		$author = trim((string) ($review['reviewer']['displayName'] ?? ''));
-		$text = self::commentForLanguage($review['comment'] ?? '',$this->reviews->defaultLanguage(),$this->reviews->defaultLanguage());
+		$author = $this->providerText($review['reviewer']['displayName'] ?? '');
+		$text = $this->providerText(self::commentForLanguage($review['comment'] ?? '',$this->reviews->defaultLanguage(),$this->reviews->defaultLanguage()));
 		$rating = $this->rating($review['starRating'] ?? 5);
 		$date = $this->time($review['createTime'] ?? '');
 		foreach ($this->reviews->all() as $id => $entry) {

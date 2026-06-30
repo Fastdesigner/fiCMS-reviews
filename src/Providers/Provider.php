@@ -47,4 +47,25 @@ abstract class FiCMSReviewsProvider {
 	public function displayText($text, $language) {
 		return $text;
 	}
+
+	protected function reviewUrl($review, $fields = []) {
+		if (!is_array($review)) return '';
+		foreach (array_merge($fields,['reviewUrl','review_url','webUrl','web_url','url','link']) as $field) {
+			if (!isset($review[$field]) || is_array($review[$field]) || is_object($review[$field])) continue;
+			if (filter_var(trim((string) $review[$field]),FILTER_VALIDATE_URL)) return trim((string) $review[$field]);
+		}
+		return '';
+	}
+
+	protected function providerText($text) {
+		$text = trim((string) $text);
+		if ($text == '' || $this->mojibakeScore($text) == 0) return $text;
+		$fixed = iconv('UTF-8','Windows-1252//IGNORE',$text);
+		return is_string($fixed) && trim($fixed) != '' && $this->mojibakeScore($fixed) < $this->mojibakeScore($text) ? trim($fixed) : $text;
+	}
+
+	private function mojibakeScore($text) {
+		preg_match_all('/(?:Ã[\x{0080}-\x{00BF}]|Â[\x{0080}-\x{00BF}]?|â[\x{0080}-\x{00BF}]{1,2})/u',(string) $text,$matches);
+		return count($matches[0]);
+	}
 }

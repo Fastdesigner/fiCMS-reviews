@@ -125,9 +125,10 @@ Do not add external source assumptions to V1 storage or rendering.
 - A missing Google location is configuration state, not a provider sync failure; do not persist `google_location_missing` as the last sync error.
 - `cron/reviews.php` delegates daily sync for all active integrations to `src/Reviews.php`.
 - The admin can trigger a manual sync per integration; this deletes/bypasses the integration timer through `forceSyncIntegration()`.
-- Imported Google reviews are normalized in `src/Reviews.php` with `provider`, `source_type`, `external_id`, `external_updated`, `imported`, and `read_only`.
+- Imported Google reviews are normalized in `src/Reviews.php` with `provider`, `source_type`, `external_id`, `external_url`, `external_updated`, `imported`, and `read_only`.
 - Provider + external review id is the primary duplicate key. A provider-local fallback by author/rating/date/text is only used when Google does not return an external id.
 - Imported Google content is read-only. The shared admin overview allows local language visibility, published state, and featured state.
+- Imported provider reviews may store `external_url` when the provider response exposes a real public URL for the individual review. Do not synthesize Google single-review links from Business Profile API resource ids; the current Google review resource does not provide a browser URL.
 - Widget rendering still consumes normalized review rows from `Reviews`; provider-specific API calls do not belong in `widgets/reviews/widget.php`.
 - Widget output is merged by default and can be filtered with `reviews_provider`.
 
