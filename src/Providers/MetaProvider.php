@@ -128,13 +128,20 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 		$after = '';
 		$page = 0;
 		do {
-			$response = $meta->ratings($integration['target']['page_id'],$pageAccessToken,'created_time,recommendation_type,review_text,reviewer,open_graph_story',100,$after);
+			$response = $meta->ratings($integration['target']['page_id'],$pageAccessToken,'created_time,recommendation_type,review_text,reviewer{id,name},from{id,name},open_graph_story{id,message,permalink_url,from{id,name}}',100,$after);
 			if (!is_array($response)) {
 				$result['error'] = $this->lastError($meta);
 				return $this->reviews->finishIntegrationSync($integration,$result);
 			}
 			foreach ($response['data'] ?? [] as $review) {
 				$state = $this->importReview($review,$integration);
+				if ($this->reviewAuthor($review) == '' && count($result['FICMS_REVIEWS_META_AUTHOR_MISSING'] ?? []) < 3) $result['FICMS_REVIEWS_META_AUTHOR_MISSING'][] = [
+					'keys'=>array_keys($review),
+					'reviewer_keys'=>is_array($review['reviewer'] ?? null) ? array_keys($review['reviewer']) : [],
+					'from_keys'=>is_array($review['from'] ?? null) ? array_keys($review['from']) : [],
+					'story_keys'=>is_array($review['open_graph_story'] ?? null) ? array_keys($review['open_graph_story']) : [],
+					'story_from_keys'=>is_array($review['open_graph_story']['from'] ?? null) ? array_keys($review['open_graph_story']['from']) : []
+				];
 				$result['count']++;
 				if ($state == 'imported') $result['imported']++;
 				if ($state == 'updated') $result['updated']++;
@@ -175,11 +182,11 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 		$language = $this->reviews->defaultLanguage();
 		return [
 			'external_id'=>$this->reviewExternalId($review),
-			'external_url'=>$this->reviewUrl($review,['permalink_url']),
-			'author'=>$this->providerText($review['reviewer']['name'] ?? ''),
+			'external_url'=>$this->reviewExternalUrl($review),
+			'author'=>$this->reviewAuthor($review),
 			'source'=>$integration['target']['location_title'] != '' ? $integration['target']['location_title'] : $integration['label'],
 			'rating'=>$this->rating($review['recommendation_type'] ?? ''),
-			'text'=>[$language=>$this->providerText($review['review_text'] ?? '')],
+			'text'=>[$language=>$this->reviewText($review)],
 			'languages'=>[$language],
 			'date'=>$this->time($review['created_time'] ?? ''),
 			'external_updated'=>$this->time($review['created_time'] ?? '')
@@ -190,8 +197,8 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 		$externalId = $this->reviewExternalId($review);
 		$id = $this->reviews->findProviderReview('meta',$externalId);
 		if ($id != '') return $id;
-		$author = $this->providerText($review['reviewer']['name'] ?? '');
-		$text = $this->providerText($review['review_text'] ?? '');
+		$author = $this->reviewAuthor($review);
+		$text = $this->reviewText($review);
 		$rating = $this->rating($review['recommendation_type'] ?? '');
 		$date = $this->time($review['created_time'] ?? '');
 		foreach ($this->reviews->all() as $id => $entry) {
@@ -209,6 +216,48 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 		$id = trim((string) ($review['id'] ?? ($review['open_graph_story']['id'] ?? '')));
 		if ($id != '') return $id;
 		return substr(hash('sha256',json_encode([$review['created_time'] ?? '',$review['recommendation_type'] ?? '',$review['reviewer']['id'] ?? '',$review['review_text'] ?? ''],JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),0,32);
+	}
+
+	private function reviewAuthor($review) {
+		foreach ([
+			$review['reviewer']['name'] ?? '',
+			$review['reviewer']['displayName'] ?? '',
+			$review['reviewer']['display_name'] ?? '',
+			$review['from']['name'] ?? '',
+			$review['open_graph_story']['from']['name'] ?? ''
+		] as $author) {
+			$author = $this->providerText($author);
+			if ($author != '') return $author;
+		}
+		return '';
+	}
+
+	private function reviewText($review) {
+		foreach ([
+			$review['review_text'] ?? '',
+			$review['text'] ?? '',
+			$review['message'] ?? '',
+			$review['open_graph_story']['message'] ?? '',
+			$review['open_graph_story']['description'] ?? ''
+		] as $text) {
+			$text = $this->providerText($text);
+			if ($text != '') return $text;
+		}
+		return '';
+	}
+
+	private function reviewExternalUrl($review) {
+		if (!is_array($review)) return '';
+		foreach ([
+			$review['permalink_url'] ?? '',
+			$review['open_graph_story']['permalink_url'] ?? '',
+			$review['open_graph_story']['link'] ?? '',
+			$review['link'] ?? ''
+		] as $url) {
+			$url = trim((string) $url);
+			if (filter_var($url,FILTER_VALIDATE_URL)) return $url;
+		}
+		return $this->reviewUrl($review,['permalink_url']);
 	}
 
 	private function rating($value) {
