@@ -20,7 +20,8 @@ class FiCMSReviewsGoogleProvider extends FiCMSReviewsProvider {
 			'oauth_provider'=>'Google',
 			'target_label'=>'_reviews_integration_target',
 			'location_select'=>['option'=>'integration_google_location','label'=>'_reviews_google_location_name','empty'=>'_reviews_google_location_select'],
-			'form_fields'=>['account_ref'=>['type'=>'hidden']],
+			'oauth_accounts'=>$this->oauthAccountCount('google'),
+			'form_fields'=>['account_ref'=>$this->oauthAccountField('google',$integration)],
 			'form_values'=>['account_ref'=>$integration['account_ref']]
 		];
 	}
@@ -39,27 +40,17 @@ class FiCMSReviewsGoogleProvider extends FiCMSReviewsProvider {
 
 	public function connect($integration) {
 		$integration = $this->reviews->normalizeIntegration($integration);
-		if (!class_exists('\oauth\OAuth')) {
-			$integration['last_error'] = 'OAuth plugin unavailable';
-			$this->reviews->storeIntegration($integration);
-			return ['result'=>false,'error'=>$integration['last_error']];
-		}
-		if (!\oauth\OAuth::provider('google',false)) {
-			$integration['last_error'] = 'Google OAuth provider unavailable';
-			$this->reviews->storeIntegration($integration);
-			return ['result'=>false,'error'=>$integration['last_error']];
-		}
 		if ($integration['last_error'] != '') {
 			$integration['last_error'] = '';
 			$this->reviews->storeIntegration($integration);
 		}
-		return ['result'=>true,'redirect'=>PAGEPATH.'/oauth.php?action=authorize&provider=google&account='.rawurlencode($integration['account_ref']),'redirect_target'=>'_blank'];
+		return ['result'=>false,'error'=>'oauth_managed_by_integrations'];
 	}
 
 	public function status($integration) {
 		$integration = $this->reviews->normalizeIntegration($integration);
-		if ($integration['id'] != 'new' && class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$integration['account_ref']) && trim((string) ($integration['target']['location_name'] ?? '')) == '') $integration = $this->resolveTarget($integration);
-		$integration['connected'] = class_exists('\oauth\OAuth') && \oauth\OAuth::account_load('google',$integration['account_ref']) ? 1 : 0;
+		if ($integration['id'] != 'new' && $this->oauthConnected('google',$integration['account_ref']) && trim((string) ($integration['target']['location_name'] ?? '')) == '') $integration = $this->resolveTarget($integration);
+		$integration['connected'] = $this->oauthConnected('google',$integration['account_ref']) ? 1 : 0;
 		$integration['provider_available'] = class_exists('\google\BusinessProfile') ? 1 : 0;
 		$integration['oauth_available'] = class_exists('\oauth\OAuth') && \oauth\OAuth::provider('google',false) ? 1 : 0;
 		$integration['ready'] = $integration['connected'] == 1 && trim((string) ($integration['target']['account_name'] ?? '')) != '' && trim((string) ($integration['target']['location_name'] ?? '')) != '' ? 1 : 0;

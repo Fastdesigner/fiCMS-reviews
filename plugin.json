@@ -12,6 +12,13 @@
       "branch": "main",
       "installLocation": "PLUGINPATH/google",
       "required": true
+    },
+    "meta": {
+      "owner": "Fastdesigner",
+      "repo": "meta",
+      "branch": "main",
+      "installLocation": "PLUGINPATH/meta",
+      "required": true
     }
   }
 }

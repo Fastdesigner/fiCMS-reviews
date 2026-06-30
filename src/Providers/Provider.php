@@ -48,6 +48,37 @@ abstract class FiCMSReviewsProvider {
 		return $text;
 	}
 
+	protected function oauthAccountOptions($provider) {
+		$options = [];
+		if (!class_exists('\oauth\OAuth') || !method_exists('\oauth\OAuth','accounts')) return $options;
+		foreach (\oauth\OAuth::accounts($provider) as $account) {
+			if (($account['status'] ?? '') != 'active') continue;
+			$options[] = [
+				'name'=>trim((string) (($account['provider_label'] ?? ucfirst($provider)).' / '.($account['account_ref'] ?? 'default'))),
+				'value'=>trim((string) ($account['account_ref'] ?? 'default')) ?: 'default'
+			];
+		}
+		return $options;
+	}
+
+	protected function oauthAccountCount($provider) {
+		return count($this->oauthAccountOptions($provider));
+	}
+
+	protected function oauthAccountField($provider, $integration) {
+		$options = $this->oauthAccountOptions($provider);
+		if (empty($options)) return ['type'=>'hidden'];
+		return ['type'=>'select','required'=>true,'options'=>$options];
+	}
+
+	protected function oauthConnected($provider, $accountRef) {
+		if (!class_exists('\oauth\OAuth') || !method_exists('\oauth\OAuth','accounts')) return false;
+		foreach (\oauth\OAuth::accounts($provider) as $account) {
+			if (($account['account_ref'] ?? '') == $accountRef && ($account['status'] ?? '') == 'active') return true;
+		}
+		return false;
+	}
+
 	protected function reviewUrl($review, $fields = []) {
 		if (!is_array($review)) return '';
 		foreach (array_merge($fields,['reviewUrl','review_url','webUrl','web_url','url','link']) as $field) {
