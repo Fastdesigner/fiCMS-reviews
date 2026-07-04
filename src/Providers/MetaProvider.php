@@ -128,7 +128,7 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 		$after = '';
 		$page = 0;
 		do {
-			$response = $meta->ratings($integration['target']['page_id'],$pageAccessToken,'created_time,recommendation_type,review_text,reviewer{id,name},from{id,name},open_graph_story{id,message,permalink_url,from{id,name}}',100,$after);
+			$response = $meta->ratings($integration['target']['page_id'],$pageAccessToken,'created_time,recommendation_type,review_text,reviewer{id,name},from{id,name},open_graph_story{id,message,from{id,name}}',100,$after);
 			if (!is_array($response)) {
 				$result['error'] = $this->lastError($meta);
 				return $this->reviews->finishIntegrationSync($integration,$result);

@@ -132,8 +132,8 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 			'label'=>$reviews['integration']['label'],
 			'provider'=>$reviews['integration']['provider']
 		],$reviews['requirements']['form_values'] ?? []);
+		foreach (array_keys($reviews['integration_inputs']) as $reviews['field']) $reviews['integration_inputs'][$reviews['field']]['option'] = 'integration_'.$reviews['field'];
 		$reviews['formitems'] = create__form_items($reviews['integration_inputs'],$reviews['integration_values'],'reviews_integration',$user['language']);
-		foreach (array_keys($reviews['integration_inputs']) as $reviews['field']) $reviews['formitems'][$reviews['field']]['option'] = 'integration_'.$reviews['field'];
 		$reviews['formitems']['active']['checked'] = intval($reviews['integration']['active'] ?? 0) == 1;
 		$reviews['integration_form'] = [
 			['id'=>$settings['key'].'-integration-id','type'=>'form','classes'=>['forms__hidden'],'form'=>['type'=>'hidden','option'=>'integration_id','value'=>$reviews['integration']['id']]],
@@ -173,7 +173,7 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 			if (trim((string) ($reviews['integration']['target']['location_name'] ?? '')) == '' && count($reviews['locations']['items']) == 1) $reviews['location_value'] = $reviews['locations']['items'][0]['value'];
 			$reviews['location_options'] = $reviews['locations']['items'];
 			if (trim((string) ($reviews['integration']['target']['location_name'] ?? '')) == '') array_unshift($reviews['location_options'],['name'=>language__get($user['language'],$reviews['requirements']['location_select']['empty'] ?? '_reviews_integration_target_missing'),'value'=>'','disabled'=>true]);
-			$reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-'.$reviews['integration']['provider'].'-location','type'=>'form','clear'=>true,'classes'=>['forms__item'],'form'=>['type'=>'select','option'=>$reviews['requirements']['location_select']['option'] ?? 'integration_location','name'=>language__get($user['language'],$reviews['requirements']['location_select']['label'] ?? '_reviews_integration_target'),'options'=>$reviews['location_options'],'value'=>$reviews['location_value']]];
+			$reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-'.$reviews['integration']['provider'].'-location','type'=>'form','classes'=>['forms__item'],'form'=>['type'=>'select','option'=>$reviews['requirements']['location_select']['option'] ?? 'integration_location','name'=>language__get($user['language'],$reviews['requirements']['location_select']['label'] ?? '_reviews_integration_target'),'options'=>$reviews['location_options'],'value'=>$reviews['location_value']]];
 		}
 		foreach (($reviews['requirements']['form_fields'] ?? []) as $reviews['field'] => $reviews['definition']) if (($reviews['formitems'][$reviews['field']]['type'] ?? '') != 'hidden') $reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-'.$reviews['field'],'type'=>'form','classes'=>['forms__item'],'form'=>$reviews['formitems'][$reviews['field']]];
 		if ($reviews['integration_id'] != 'new' && !empty($reviews['status_dropdown'])) $reviews['integration_form'][] = $reviews['status_dropdown'];
