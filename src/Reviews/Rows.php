@@ -20,9 +20,8 @@ class FiCMSReviewsRows {
 		$entry['text'] = $this->normalizer->resolveText($entry['text'],$language);
 		$entry['text'] = $this->reviews->providerDisplayText($entry['provider'],$entry['text'],$language);
 		$entry['has_text'] = trim((string) $entry['text']) !== '' ? 1 : 0;
-		$entry['display_title'] = $this->displayTitle($entry);
 		$entry['sort_id'] = $id;
-		$entry['search'] = trim($id.' '.$entry['display_title'].' '.$entry['author'].' '.$entry['source'].' '.$entry['text'].' '.$entry['provider']);
+		$entry['search'] = trim($id.' '.$entry['author'].' '.$entry['source'].' '.$entry['text'].' '.$entry['provider']);
 		return $entry;
 	}
 
@@ -98,15 +97,6 @@ class FiCMSReviewsRows {
 		$initials = mb_substr($parts[0],0,1,'UTF-8');
 		$initials .= count($parts) > 1 ? mb_substr($parts[count($parts) - 1],0,1,'UTF-8') : mb_substr($parts[0],1,1,'UTF-8');
 		return mb_strtoupper($initials,'UTF-8');
-	}
-
-	private function displayTitle($entry) {
-		foreach (['author','text','source'] as $field) {
-			$value = trim((string) ($entry[$field] ?? ''));
-			if ($value == '') continue;
-			return function_exists('format__shorten') ? format__shorten($value,70) : $value;
-		}
-		return '';
 	}
 
 	private function normalizeFilter($filter) {
