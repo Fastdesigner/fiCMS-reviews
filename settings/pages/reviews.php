@@ -297,6 +297,7 @@ foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 	$reviews['config_error'] = ($reviews['requirements']['config_error'] ?? '') != '' && ($reviews['status']['last_error'] ?? '') == $reviews['requirements']['config_error'];
 	$reviews['status_error'] = ($reviews['status_oauth_error'] == 1 || ($reviews['status']['last_error'] != '' && !$reviews['config_error'])) ? 1 : 0;
 	$reviews['location_title'] = trim((string) ($reviews['status']['target']['location_title'] ?? ''));
+	$reviews['review_count'] = $reviews['instance']->providerReviewCount($reviews['integration']['provider']);
 	$reviews['subtitle'] = $reviews['location_title'] != '' && $reviews['status']['ready'] == 1 ? $reviews['location_title'] : trim((string) ($reviews['status']['target']['location_name'] ?? ''));
 	$reviews['notify'] = false;
 	if ($reviews['status_error'] == 1) {
@@ -322,8 +323,18 @@ foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 	]];
 	$reviews['attributes'] = ['class'=>'system-next'];
 	if ($reviews['notify'] !== false) $reviews['attributes']['data-notify'] = $reviews['notify'];
+	$reviews['dropdown_options'] = [
+		'subtitle'=>$reviews['subtitle'],
+		'attributes'=>$reviews['attributes'],
+		'icons'=>[[
+			'id'=>$settings['key'].'-'.$reviews['integration']['id'].'-count',
+			'value'=>(string) $reviews['review_count'],
+			'attributes'=>['title'=>language__get($user['language'],'_reviews_tab_reviews').': '.$reviews['review_count']]
+		]]
+	];
+	if ($reviews['provider_logo'] != '') $reviews['dropdown_options']['image'] = $reviews['provider_logo'];
 	$reviews['integration_items'][] = ['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-row','tag'=>'li','items'=>[
-		create__dropdown($settings['key'].'-'.$reviews['integration']['id'].'-dropdown',$reviews['integration']['label'],create__list($settings['key'].'-'.$reviews['integration']['id'].'-list',$reviews['details'],['clear'=>true]),array_merge(['subtitle'=>$reviews['subtitle'],'attributes'=>$reviews['attributes']],$reviews['provider_logo'] != '' ? ['image'=>$reviews['provider_logo']] : []))
+		create__dropdown($settings['key'].'-'.$reviews['integration']['id'].'-dropdown',$reviews['integration']['label'],create__list($settings['key'].'-'.$reviews['integration']['id'].'-list',$reviews['details'],['clear'=>true]),$reviews['dropdown_options'])
 	]];
 }
 $reviews['integration_items'][] = ['id'=>$settings['key'].'-integration-new','tag'=>'li','description'=>language__get($user['language'],'_reviews_integration_new'),'classes'=>['system-next'],'actions'=>['load'=>['id'=>'integration-new','form'=>true]]];

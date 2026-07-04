@@ -186,6 +186,17 @@ class FiCMSReviews {
 		return $this->integrations['integrations'];
 	}
 
+	public function providerReviewCount($provider) {
+		$provider = $this->validProvider($provider) ? trim((string) $provider) : '';
+		if ($provider == '') return 0;
+		$count = 0;
+		foreach ($this->data['reviews'] as $id => $entry) {
+			$entry = $this->normalizeEntry($id,$entry);
+			if ($entry['provider'] == $provider) $count++;
+		}
+		return $count;
+	}
+
 	public function integration($id = '') {
 		$id = $this->validIntegrationId($id) ? trim((string) $id) : '';
 		foreach ($this->integrations['integrations'] as $integration) if ($integration['id'] == $id) return $integration;
