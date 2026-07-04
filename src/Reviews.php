@@ -439,10 +439,11 @@ class FiCMSReviews {
 			if (trim((string) $value) == '') continue;
 			$text[$language] = trim((string) $value);
 		}
+		$author = $this->normalizer->plainText($review['author'] ?? '');
 		$entry = [
 			'id'=>$id,
 			'created'=>$existing['created'] ?? intval($_SERVER['now'] ?? time()),
-			'author'=>$this->normalizer->plainText($review['author'] ?? $existing['author']),
+			'author'=>$author != '' ? $author : $existing['author'],
 			'source'=>$this->normalizer->plainText($review['source'] ?? $existing['source']),
 			'rating'=>max(1,min(5,intval($review['rating'] ?? $existing['rating']))),
 			'text'=>$text,

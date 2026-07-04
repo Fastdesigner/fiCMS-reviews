@@ -274,7 +274,7 @@ foreach ($reviews['admin']['rows'] as $reviews['entry']) {
 	$reviews['state'] = !empty($reviews['entry']['published']) ? language__get($user['language'],'_reviews_published') : language__get($user['language'],'_reviews_draft');
 	$reviews['provider_text'] = ucfirst((string) ($reviews['entry']['provider'] ?? 'local'));
 	$reviews['subtitle'] = $reviews['provider_text'].' · '.$reviews['rating_text'].' · '.$reviews['state'].' · '.format__date_relative(intval($reviews['entry']['date'] ?? $_SERVER['now']),'date',$user['language']);
-	$reviews['title'] = trim((string) $reviews['entry']['author']);
+	$reviews['title'] = trim((string) ($reviews['entry']['display_title'] ?? $reviews['entry']['author']));
 	if ($reviews['title'] == '') $reviews['title'] = language__get($user['language'],'_reviews_no_author');
 	$reviews['item'] = ['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-row','tag'=>'li','description'=>$reviews['title'],'subtitle'=>$reviews['subtitle'],'image'=>PAGEPATH.'/media/language/'.(in_array('all',$reviews['entry']['lid'],true) ? 'all' : $reviews['entry']['lid'][0]).'.png','actions'=>['load'=>['id'=>$reviews['entry']['id'],'form'=>true]]];
 	$reviews['item']['actions']['ac'] = ['id'=>$reviews['entry']['id'],'action'=>'ac','name'=>$settings['key'].'-'.$reviews['entry']['id'],'checked'=>!empty($reviews['entry']['published']),'dropdown_sync'=>false];
