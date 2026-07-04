@@ -129,92 +129,28 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 			return $this->reviews->finishIntegrationSync($integration,$result);
 		}
 		$after = '';
-		$page = 0;
 		$seen = [];
-		$result['FICMS_REVIEWS_META_SYNC_DEBUG'] = ['pages'=>[],'story_lookup'=>[],'author_missing'=>[],'author_found'=>[],'cursor_repeat'=>0];
 		do {
 			$response = $meta->ratings($integration['target']['page_id'],$pageAccessToken,'created_time,recommendation_type,review_text,reviewer{id,name},from{id,name},open_graph_story{id,message,from{id,name}}',100,$after);
 			if (!is_array($response)) {
 				$result['error'] = $this->lastError($meta);
 				return $this->reviews->finishIntegrationSync($integration,$result);
 			}
-			$response['data'] = $this->enrichReviewStories($response['data'] ?? [],$meta,$pageAccessToken,$result['FICMS_REVIEWS_META_SYNC_DEBUG']);
-			$result['FICMS_REVIEWS_META_SYNC_DEBUG']['pages'][] = [
-				'page'=>$page + 1,
-				'items'=>count($response['data'] ?? []),
-				'after_before'=>$after,
-				'after_next'=>trim((string) ($response['paging']['cursors']['after'] ?? '')),
-				'has_next'=>trim((string) ($response['paging']['next'] ?? '')) != '' ? 1 : 0
-			];
 			foreach ($response['data'] ?? [] as $review) {
 				$state = $this->importReview($review,$integration);
-				$author = $this->reviewAuthor($review);
-				if ($author == '' && count($result['FICMS_REVIEWS_META_SYNC_DEBUG']['author_missing']) < 5) $result['FICMS_REVIEWS_META_SYNC_DEBUG']['author_missing'][] = [
-					'keys'=>array_keys($review),
-					'reviewer_keys'=>is_array($review['reviewer'] ?? null) ? array_keys($review['reviewer']) : [],
-					'from_keys'=>is_array($review['from'] ?? null) ? array_keys($review['from']) : [],
-					'story_keys'=>is_array($review['open_graph_story'] ?? null) ? array_keys($review['open_graph_story']) : [],
-					'story_from_keys'=>is_array($review['open_graph_story']['from'] ?? null) ? array_keys($review['open_graph_story']['from']) : [],
-					'reviewer'=>$review['reviewer'] ?? null,
-					'from'=>$review['from'] ?? null,
-					'story_from'=>$review['open_graph_story']['from'] ?? null,
-					'created_time'=>$review['created_time'] ?? '',
-					'recommendation_type'=>$review['recommendation_type'] ?? '',
-					'has_text'=>trim((string) ($review['review_text'] ?? ($review['open_graph_story']['message'] ?? ''))) != '' ? 1 : 0
-				];
-				if ($author != '' && count($result['FICMS_REVIEWS_META_SYNC_DEBUG']['author_found']) < 3) $result['FICMS_REVIEWS_META_SYNC_DEBUG']['author_found'][] = [
-					'author'=>$author,
-					'keys'=>array_keys($review),
-					'reviewer'=>$review['reviewer'] ?? null,
-					'from'=>$review['from'] ?? null,
-					'story_from'=>$review['open_graph_story']['from'] ?? null
-				];
 				$result['count']++;
 				if ($state == 'imported') $result['imported']++;
 				if ($state == 'updated') $result['updated']++;
 			}
 			$after = trim((string) ($response['paging']['cursors']['after'] ?? ''));
-			if ($after != '' && isset($seen[$after])) {
-				$result['FICMS_REVIEWS_META_SYNC_DEBUG']['cursor_repeat'] = 1;
-				$after = '';
-			}
+			if ($after != '' && isset($seen[$after])) $after = '';
 			if ($after != '') $seen[$after] = true;
-			$page++;
 		} while ($after != '');
 
 		$result['result'] = true;
 		$this->reviews->touchData();
 		$this->reviews->write();
 		return $this->reviews->finishIntegrationSync($integration,$result);
-	}
-
-	private function enrichReviewStories($reviews, $meta, $pageAccessToken, &$debug) {
-		if (!method_exists($meta,'objects') || empty($reviews)) return $reviews;
-		$lookup = [];
-		foreach ($reviews as $index => $review) {
-			if ($this->reviewAuthor($review) != '') continue;
-			$storyId = $this->storyId($review);
-			if ($storyId == '') continue;
-			$lookup[$storyId][] = $index;
-		}
-		if (empty($lookup)) return $reviews;
-		$stories = $meta->objects(array_keys($lookup),'id,from{id,name},message', $pageAccessToken);
-		$debug['story_lookup'][] = [
-			'requested'=>count($lookup),
-			'result'=>is_array($stories) ? 1 : 0,
-			'returned'=>is_array($stories) ? count($stories) : 0,
-			'error'=>is_array($stories) ? '' : $this->lastError($meta)
-		];
-		if (!is_array($stories)) return $reviews;
-		foreach ($stories as $storyId => $story) {
-			if (!is_array($story) || empty($lookup[$storyId])) continue;
-			foreach ($lookup[$storyId] as $index) {
-				if (!isset($reviews[$index]) || !is_array($reviews[$index])) continue;
-				if (!is_array($reviews[$index]['open_graph_story'] ?? null)) $reviews[$index]['open_graph_story'] = [];
-				$reviews[$index]['open_graph_story'] = array_merge($story,$reviews[$index]['open_graph_story']);
-			}
-		}
-		return $reviews;
 	}
 
 	public function resolveTarget($integration) {
@@ -277,10 +213,6 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 		$id = trim((string) ($review['id'] ?? ($review['open_graph_story']['id'] ?? '')));
 		if ($id != '') return $id;
 		return substr(hash('sha256',json_encode([$review['created_time'] ?? '',$review['recommendation_type'] ?? '',$review['reviewer']['id'] ?? '',$review['review_text'] ?? ''],JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),0,32);
-	}
-
-	private function storyId($review) {
-		return preg_replace('/[^0-9_]/','',trim((string) ($review['open_graph_story']['id'] ?? ''))) ?: '';
 	}
 
 	private function reviewAuthor($review) {
