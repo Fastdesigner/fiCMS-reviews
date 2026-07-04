@@ -366,7 +366,8 @@ class FiCMSReviews {
 			'target'=>[
 				'account_name'=>trim((string) ($target['account_name'] ?? '')),
 				'location_name'=>trim((string) ($target['location_name'] ?? '')),
-				'location_title'=>trim((string) ($target['location_title'] ?? ''))
+				'location_title'=>trim((string) ($target['location_title'] ?? '')),
+				'page_id'=>trim((string) ($target['page_id'] ?? ''))
 			],
 			'config'=>$normalizedConfig,
 			'last_sync'=>intval($integration['last_sync'] ?? 0),

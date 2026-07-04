@@ -168,14 +168,22 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 			if (!empty($reviews['requirements']['location_choices']) && $reviews['status']['connected'] == 1 && trim((string) ($reviews['status']['target']['location_name'] ?? '')) == '' && !$reviews['locations']['result'] && $reviews['locations']['error'] != '') $reviews['status_items'][] = ['id'=>$settings['key'].'-integration-status-location-error','description'=>language__get($user['language'],$reviews['requirements']['location_select']['label'] ?? '_reviews_integration_target'),'subtitle'=>htmlspecialchars($reviews['locations']['error'],ENT_QUOTES,'UTF-8')];
 			$reviews['status_dropdown'] = !empty($reviews['status_items']) ? create__dropdown($settings['key'].'-integration-status',language__get($user['language'],'_reviews_integration_status'),create__list($settings['key'].'-integration-status-list',$reviews['status_items'],['clear'=>true]),['attributes'=>['data-details-independent'=>'true']]) : [];
 		}
+		foreach (($reviews['requirements']['form_fields'] ?? []) as $reviews['field'] => $reviews['definition']) if (($reviews['formitems'][$reviews['field']]['type'] ?? '') != 'hidden') $reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-'.$reviews['field'],'type'=>'form','classes'=>['forms__item'],'form'=>$reviews['formitems'][$reviews['field']]];
 		if (!empty($reviews['requirements']['location_choices']) && $reviews['status']['connected'] == 1 && $reviews['locations']['result'] && count($reviews['locations']['items']) > 0) {
-			$reviews['location_value'] = json_encode($reviews['integration']['target'],JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-			if (trim((string) ($reviews['integration']['target']['location_name'] ?? '')) == '' && count($reviews['locations']['items']) == 1) $reviews['location_value'] = $reviews['locations']['items'][0]['value'];
+			$reviews['location_value'] = '';
+			foreach ($reviews['locations']['items'] as $reviews['location_option']) {
+				$reviews['location_decoded'] = $reviews['instance']->decode($reviews['location_option']['value'] ?? '');
+				if (!is_array($reviews['location_decoded'])) continue;
+				if (trim((string) ($reviews['integration']['target']['page_id'] ?? '')) != '' && trim((string) ($reviews['location_decoded']['page_id'] ?? '')) == trim((string) ($reviews['integration']['target']['page_id'] ?? ''))) $reviews['location_value'] = $reviews['location_option']['value'];
+				if (trim((string) ($reviews['integration']['target']['location_name'] ?? '')) != '' && trim((string) ($reviews['location_decoded']['location_name'] ?? '')) == trim((string) ($reviews['integration']['target']['location_name'] ?? ''))) $reviews['location_value'] = $reviews['location_option']['value'];
+				if (trim((string) ($reviews['integration']['target']['location_name'] ?? '')) != '' && trim((string) ($reviews['location_decoded']['page_name'] ?? '')) == trim((string) ($reviews['integration']['target']['location_name'] ?? ''))) $reviews['location_value'] = $reviews['location_option']['value'];
+				if ($reviews['location_value'] != '') break;
+			}
+			if ($reviews['location_value'] == '' && trim((string) ($reviews['integration']['target']['location_name'] ?? '')) == '' && count($reviews['locations']['items']) == 1) $reviews['location_value'] = $reviews['locations']['items'][0]['value'];
 			$reviews['location_options'] = $reviews['locations']['items'];
-			if (trim((string) ($reviews['integration']['target']['location_name'] ?? '')) == '') array_unshift($reviews['location_options'],['name'=>language__get($user['language'],$reviews['requirements']['location_select']['empty'] ?? '_reviews_integration_target_missing'),'value'=>'','disabled'=>true]);
+			if ($reviews['location_value'] == '') array_unshift($reviews['location_options'],['name'=>language__get($user['language'],$reviews['requirements']['location_select']['empty'] ?? '_reviews_integration_target_missing'),'value'=>'','disabled'=>true]);
 			$reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-'.$reviews['integration']['provider'].'-location','type'=>'form','classes'=>['forms__item'],'form'=>['type'=>'select','option'=>$reviews['requirements']['location_select']['option'] ?? 'integration_location','name'=>language__get($user['language'],$reviews['requirements']['location_select']['label'] ?? '_reviews_integration_target'),'options'=>$reviews['location_options'],'value'=>$reviews['location_value']]];
 		}
-		foreach (($reviews['requirements']['form_fields'] ?? []) as $reviews['field'] => $reviews['definition']) if (($reviews['formitems'][$reviews['field']]['type'] ?? '') != 'hidden') $reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-'.$reviews['field'],'type'=>'form','classes'=>['forms__item'],'form'=>$reviews['formitems'][$reviews['field']]];
 		if ($reviews['integration_id'] != 'new' && !empty($reviews['status_dropdown'])) $reviews['integration_form'][] = $reviews['status_dropdown'];
 		$reviews['connect_label'] = !empty($reviews['requirements']['connect']) && ($reviews['status']['connected'] != 1 || $reviews['location_oauth_error'] == 1) ? language__get($user['language'],'_reviews_integration_manage_oauth') : false;
 		$reviews['connect_action'] = $reviews['connect_label'] ? ['load'=>['function'=>'reviews__open_integrations']] : [];

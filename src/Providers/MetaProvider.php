@@ -31,8 +31,8 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 		$page = $this->reviews->decode($post['integration_meta_page']);
 		if (is_array($page)) $integration['target'] = [
 			'page_id'=>trim((string) ($page['page_id'] ?? '')),
-			'location_name'=>trim((string) ($page['page_name'] ?? '')),
-			'location_title'=>trim((string) ($page['page_name'] ?? ''))
+			'location_name'=>trim((string) ($page['page_name'] ?? ($page['location_name'] ?? ''))),
+			'location_title'=>trim((string) ($page['page_name'] ?? ($page['location_title'] ?? '')))
 		];
 		if (is_array($page) && $integration['last_error'] == 'meta_page_missing') $integration['last_error'] = '';
 		return $integration;
@@ -76,7 +76,7 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 			if ($pageId == '') continue;
 			$result['items'][] = [
 				'name'=>$pageName,
-				'value'=>json_encode(['page_id'=>$pageId,'page_name'=>$pageName],JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+				'value'=>json_encode(['page_id'=>$pageId,'page_name'=>$pageName,'location_name'=>$pageName,'location_title'=>$pageName],JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
 			];
 		}
 		$result['result'] = true;
