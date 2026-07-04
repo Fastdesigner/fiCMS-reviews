@@ -110,13 +110,18 @@ class FiCMSReviews {
 	}
 
 	public function providers() {
+		$definitions = $this->providerDefinitions();
 		$providers = ['local'=>['name'=>'Local','value'=>'local']];
 		foreach ($this->data['reviews'] as $entry) {
 			$entry = $this->normalizeEntry($entry['id'] ?? '',$entry);
 			if ($entry['provider'] == '') continue;
-			$providers[$entry['provider']] = ['name'=>ucfirst($entry['provider']),'value'=>$entry['provider']];
+			$providers[$entry['provider']] = ['name'=>$definitions[$entry['provider']]['name'] ?? ucfirst($entry['provider']),'value'=>$entry['provider']];
 		}
-		foreach ($this->providerDefinitions() as $key => $definition) $providers[$key] = ['name'=>$definition['name'],'value'=>$key];
+		foreach ($this->integrations['integrations'] as $integration) {
+			$integration = $this->normalizeIntegration($integration);
+			if ($integration['provider'] == '') continue;
+			$providers[$integration['provider']] = ['name'=>$definitions[$integration['provider']]['name'] ?? ucfirst($integration['provider']),'value'=>$integration['provider']];
+		}
 		return $providers;
 	}
 
