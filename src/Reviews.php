@@ -130,7 +130,7 @@ class FiCMSReviews {
 
 	public function providerRequirements($provider, $integration = []) {
 		$instance = $this->provider($provider);
-		return $instance ? $instance->requirements($integration) : ['oauth'=>0,'sync'=>0,'config_error'=>'','connect'=>0,'location_choices'=>0,'form_fields'=>[],'form_values'=>[]];
+		return $instance ? $instance->requirements($integration) : ['oauth'=>0,'sync'=>0,'config_error'=>'','connect'=>0,'location_choices'=>0,'oauth_accounts'=>0,'oauth_account_options'=>[],'form_fields'=>[],'form_values'=>[]];
 	}
 
 	private function provider($provider) {

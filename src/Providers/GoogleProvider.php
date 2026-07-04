@@ -11,7 +11,7 @@ class FiCMSReviewsGoogleProvider extends FiCMSReviewsProvider {
 
 	public function requirements($integration = []) {
 		$integration = $this->reviews->normalizeIntegration($integration);
-		return [
+		return array_merge([
 			'oauth'=>1,
 			'sync'=>1,
 			'connect'=>1,
@@ -20,10 +20,9 @@ class FiCMSReviewsGoogleProvider extends FiCMSReviewsProvider {
 			'oauth_provider'=>'Google',
 			'target_label'=>'_reviews_integration_target',
 			'location_select'=>['option'=>'integration_google_location','label'=>'_reviews_google_location_name','empty'=>'_reviews_google_location_select'],
-			'oauth_accounts'=>$this->oauthAccountCount('google'),
-			'form_fields'=>['account_ref'=>$this->oauthAccountField('google',$integration)],
-			'form_values'=>['account_ref'=>$integration['account_ref']]
-		];
+			'form_fields'=>[],
+			'form_values'=>[]
+		],$this->oauthAccountRequirements('google'));
 	}
 
 	public function saveIntegration($integration, $post, $existing) {

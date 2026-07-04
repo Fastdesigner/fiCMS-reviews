@@ -11,7 +11,7 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 
 	public function requirements($integration = []) {
 		$integration = $this->reviews->normalizeIntegration($integration);
-		return [
+		return array_merge([
 			'oauth'=>1,
 			'sync'=>1,
 			'connect'=>1,
@@ -20,10 +20,9 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 			'oauth_provider'=>'Meta',
 			'target_label'=>'_reviews_meta_page',
 			'location_select'=>['option'=>'integration_meta_page','label'=>'_reviews_meta_page','empty'=>'_reviews_meta_page_select'],
-			'oauth_accounts'=>$this->oauthAccountCount('meta'),
-			'form_fields'=>['account_ref'=>$this->oauthAccountField('meta',$integration)],
-			'form_values'=>['account_ref'=>$integration['account_ref']]
-		];
+			'form_fields'=>[],
+			'form_values'=>[]
+		],$this->oauthAccountRequirements('meta'));
 	}
 
 	public function saveIntegration($integration, $post, $existing) {

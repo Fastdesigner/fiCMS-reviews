@@ -17,7 +17,7 @@ abstract class FiCMSReviewsProvider {
 	}
 
 	public function requirements($integration = []) {
-		return ['oauth'=>0,'sync'=>0,'config_error'=>'','connect'=>0,'location_choices'=>0,'form_fields'=>[],'form_values'=>[]];
+		return ['oauth'=>0,'sync'=>0,'config_error'=>'','connect'=>0,'location_choices'=>0,'oauth_accounts'=>0,'oauth_account_options'=>[],'form_fields'=>[],'form_values'=>[]];
 	}
 
 	public function normalizeIntegration($integration) {
@@ -61,14 +61,9 @@ abstract class FiCMSReviewsProvider {
 		return $options;
 	}
 
-	protected function oauthAccountCount($provider) {
-		return count($this->oauthAccountOptions($provider));
-	}
-
-	protected function oauthAccountField($provider, $integration) {
+	protected function oauthAccountRequirements($provider) {
 		$options = $this->oauthAccountOptions($provider);
-		if (empty($options)) return ['type'=>'hidden'];
-		return ['type'=>'select','required'=>true,'options'=>$options];
+		return ['oauth_accounts'=>count($options),'oauth_account_options'=>$options];
 	}
 
 	protected function oauthConnected($provider, $accountRef) {

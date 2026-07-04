@@ -11,6 +11,14 @@ function reviews__state(form) {
 function reviews__init(form) {
 	let state = reviews__state(form);
 	if (!state) return false;
+	reviews__debug_account_fields(form);
+	return true;
+}
+
+function reviews__debug_account_fields(form) {
+	let fields = Array.from(form.querySelectorAll('input,select')).filter(elem => (elem.name || elem.dataset.name || '') == 'integration_account_ref' || (elem.value || '') == 'default');
+	if (fields.length <= 1) return false;
+	console.log('[fiCMS-reviews account-field]',fields.map(elem => ({tag:elem.tagName.toLowerCase(),type:elem.type || '',name:elem.name || '',data_name:elem.dataset.name || '',value:elem.value || '',hidden:elem.closest('.forms__hidden') ? 1 : 0})));
 	return true;
 }
 
