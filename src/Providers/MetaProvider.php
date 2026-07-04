@@ -198,7 +198,7 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 			$lookup[$storyId][] = $index;
 		}
 		if (empty($lookup)) return $reviews;
-		$stories = $meta->objects(array_keys($lookup),'id,from{id,name},message,permalink_url', $pageAccessToken);
+		$stories = $meta->objects(array_keys($lookup),'id,from{id,name},message', $pageAccessToken);
 		$debug['story_lookup'][] = [
 			'requested'=>count($lookup),
 			'result'=>is_array($stories) ? 1 : 0,
