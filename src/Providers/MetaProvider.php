@@ -64,20 +64,24 @@ class FiCMSReviewsMetaProvider extends FiCMSReviewsProvider {
 			return $result;
 		}
 		$meta = new \meta\Meta($integration['account_ref']);
-		$response = $meta->pages();
-		if (!is_array($response)) {
-			$result['error'] = $this->lastError($meta);
-			return $result;
-		}
-		foreach ($response['data'] ?? [] as $page) {
-			$pageId = trim((string) ($page['id'] ?? ''));
-			$pageName = trim((string) ($page['name'] ?? $pageId));
-			if ($pageId == '') continue;
-			$result['items'][] = [
-				'name'=>$pageName,
-				'value'=>json_encode(['page_id'=>$pageId,'page_name'=>$pageName,'location_name'=>$pageName,'location_title'=>$pageName],JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-			];
-		}
+		$after = '';
+		do {
+			$response = $meta->pages('id,name,access_token,tasks,category',100,$after);
+			if (!is_array($response)) {
+				$result['error'] = $this->lastError($meta);
+				return $result;
+			}
+			foreach ($response['data'] ?? [] as $page) {
+				$pageId = trim((string) ($page['id'] ?? ''));
+				$pageName = trim((string) ($page['name'] ?? $pageId));
+				if ($pageId == '') continue;
+				$result['items'][] = [
+					'name'=>$pageName,
+					'value'=>json_encode(['page_id'=>$pageId,'page_name'=>$pageName,'location_name'=>$pageName,'location_title'=>$pageName],JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+				];
+			}
+			$after = trim((string) ($response['paging']['cursors']['after'] ?? ''));
+		} while ($after != '');
 		$result['result'] = true;
 		return $result;
 	}

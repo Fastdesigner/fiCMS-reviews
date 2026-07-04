@@ -124,6 +124,38 @@ class FiCMSReviews {
 		return $this->providerRegistry->definitions();
 	}
 
+	public function oauthIntegrationOptions($currentId = '') {
+		$options = [];
+		if (!class_exists('\oauth\OAuth') || !method_exists('\oauth\OAuth','accounts')) return $options;
+		$definitions = $this->providerDefinitions();
+		$used = [];
+		$currentId = trim((string) $currentId);
+		foreach ($this->integrations['integrations'] as $integration) {
+			$integration = $this->normalizeIntegration($integration);
+			if ($currentId != '' && $integration['id'] == $currentId) continue;
+			if (empty($definitions[$integration['provider']]['oauth'])) continue;
+			$used[$integration['provider'].'|'.$integration['account_ref']] = true;
+		}
+		foreach (\oauth\OAuth::accounts() as $account) {
+			$provider = trim((string) ($account['provider'] ?? ''));
+			$accountRef = trim((string) ($account['account_ref'] ?? 'default')) ?: 'default';
+			if (($account['status'] ?? '') != 'active' || empty($definitions[$provider]['oauth']) || isset($used[$provider.'|'.$accountRef])) continue;
+			$options[] = [
+				'name'=>trim((string) (($account['provider_label'] ?? ucfirst($provider)).' / '.$accountRef)),
+				'value'=>$provider.'|'.$accountRef
+			];
+		}
+		return $options;
+	}
+
+	public function oauthIntegrationFromValue($value) {
+		$parts = explode('|',trim((string) $value),2);
+		$provider = preg_replace('/[^a-z0-9_-]/i','',trim((string) ($parts[0] ?? '')));
+		$accountRef = preg_replace('/[^a-z0-9_.:-]/i','',trim((string) ($parts[1] ?? 'default'))) ?: 'default';
+		if (!$this->provider($provider) || empty(($this->providerDefinitions()[$provider] ?? [])['oauth'])) return [];
+		return ['provider'=>$provider,'account_ref'=>$accountRef,'value'=>$provider.'|'.$accountRef];
+	}
+
 	public function defaultLanguage() {
 		return $this->defaultLanguage;
 	}
@@ -166,7 +198,8 @@ class FiCMSReviews {
 
 	public function saveIntegrationFromPost($id, $post) {
 		$original = $this->validIntegrationId($id) ? trim((string) $id) : '';
-		$provider = $this->provider($post['integration_provider'] ?? '') ? trim((string) $post['integration_provider']) : $this->defaultProvider();
+		$oauth = $this->oauthIntegrationFromValue($post['integration_oauth_account'] ?? '');
+		$provider = $oauth['provider'] ?? ($this->provider($post['integration_provider'] ?? '') ? trim((string) $post['integration_provider']) : $this->defaultProvider());
 		$saveId = $this->validIntegrationId($post['integration_id'] ?? '') ? trim((string) $post['integration_id']) : $original;
 		if ($saveId == '' || $saveId == 'new') $saveId = $this->createIntegrationId($provider);
 		$existing = $original != '' && $original != 'new' ? $this->integration($original) : $this->blankIntegration($saveId);
@@ -175,7 +208,7 @@ class FiCMSReviews {
 			'label'=>trim((string) ($post['integration_label'] ?? '')) != '' ? trim((string) ($post['integration_label'] ?? '')) : ucfirst($provider),
 			'provider'=>$provider,
 			'active'=>($original == '' || $original == 'new') && !isset($post['integration_active']) ? 1 : (!empty($post['integration_active']) ? 1 : 0),
-			'account_ref'=>trim((string) ($post['integration_account_ref'] ?? ($existing['account_ref'] ?? 'default'))) ?: 'default'
+			'account_ref'=>$oauth['account_ref'] ?? (trim((string) ($post['integration_account_ref'] ?? ($existing['account_ref'] ?? 'default'))) ?: 'default')
 		]);
 		$integration = $this->provider($provider)->saveIntegration($integration,$post,$existing);
 		foreach ($this->integrations['integrations'] as $key => $entry) {

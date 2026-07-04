@@ -27,6 +27,8 @@
   "_reviews_integration_label": "Label",
   "_reviews_integration_provider": "Provider",
   "_reviews_integration_account_ref": "OAuth account",
+  "_reviews_integration_oauth_account": "Select integration",
+  "_reviews_integration_oauth_hint": "New review integrations must first be connected with OAuth under Settings > Website > Integrations.",
   "_reviews_integration_tripadvisor_api_key": "Tripadvisor API key",
   "_reviews_integration_tripadvisor_location_id": "Tripadvisor location ID",
   "_reviews_integration_connected": "Connected",

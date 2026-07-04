@@ -41,8 +41,6 @@ $reviews['languages'] = [
 foreach ($site['installed_languages'] as $reviews['language']) $reviews['languages'][] = ['name'=>strtoupper($reviews['language']),'value'=>$reviews['language']];
 $reviews['provider_options'] = [['name'=>language__get($user['language'],'_sort_all'),'value'=>'']];
 foreach ($reviews['instance']->providers() as $reviews['provider']) $reviews['provider_options'][] = ['name'=>$reviews['provider']['name'],'value'=>$reviews['provider']['value']];
-$reviews['integration_provider_options'] = [];
-foreach ($reviews['instance']->providerDefinitions() as $reviews['provider_key'] => $reviews['provider_definition']) $reviews['integration_provider_options'][] = ['name'=>$reviews['provider_definition']['name'],'value'=>$reviews['provider_key']];
 
 if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key']) {
 	$reviews['action'] = (string) ($_POST['action'] ?? '');
@@ -114,29 +112,38 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		$reviews['integration'] = $reviews['integration_id'] == 'new' ? $reviews['instance']->blankIntegration('new') : $reviews['instance']->integration($reviews['integration_id']);
 		if (isset($_POST['integration_label'])) $reviews['integration']['label'] = trim((string) $_POST['integration_label']);
 		if (isset($_POST['integration_active'])) $reviews['integration']['active'] = !empty($_POST['integration_active']) ? 1 : 0;
-		$reviews['provider_preview'] = isset($_POST['integration_provider']) && in_array(trim((string) $_POST['integration_provider']),array_column($reviews['integration_provider_options'],'value'),true) && trim((string) $_POST['integration_provider']) != $reviews['integration']['provider'];
-		$reviews['account_preview'] = isset($_POST['integration_account_ref']) && (trim((string) $_POST['integration_account_ref']) ?: 'default') != $reviews['integration']['account_ref'];
-		if ($reviews['provider_preview']) $reviews['integration']['provider'] = trim((string) $_POST['integration_provider']);
+		$reviews['oauth_selection'] = $reviews['instance']->oauthIntegrationFromValue($_POST['integration_oauth_account'] ?? '');
+		$reviews['provider_preview'] = !empty($reviews['oauth_selection']) && $reviews['oauth_selection']['provider'] != $reviews['integration']['provider'];
+		$reviews['account_preview'] = (!empty($reviews['oauth_selection']) && $reviews['oauth_selection']['account_ref'] != $reviews['integration']['account_ref']) || (isset($_POST['integration_account_ref']) && (trim((string) $_POST['integration_account_ref']) ?: 'default') != $reviews['integration']['account_ref']);
+		if (!empty($reviews['oauth_selection'])) {
+			$reviews['integration']['provider'] = $reviews['oauth_selection']['provider'];
+			$reviews['integration']['account_ref'] = $reviews['oauth_selection']['account_ref'];
+		}
 		if (isset($_POST['integration_account_ref'])) $reviews['integration']['account_ref'] = trim((string) $_POST['integration_account_ref']) ?: 'default';
 		$reviews['status'] = $reviews['integration_id'] == 'new' || $reviews['provider_preview'] || $reviews['account_preview'] ? $reviews['instance']->previewIntegrationStatus($reviews['integration']) : $reviews['instance']->integrationStatus($reviews['integration_id']);
 		$reviews['requirements'] = $reviews['instance']->providerRequirements($reviews['integration']['provider'],$reviews['integration']);
 		$reviews['locations'] = ['result'=>false,'items'=>[],'error'=>''];
-		if (!empty($reviews['requirements']['location_choices']) && $reviews['status']['connected'] == 1) $reviews['locations'] = $reviews['instance']->providerLocationChoices($reviews['integration']);
+		$reviews['oauth_value'] = !empty($reviews['requirements']['oauth']) && ($reviews['integration_id'] != 'new' || !empty($reviews['oauth_selection'])) ? $reviews['integration']['provider'].'|'.$reviews['integration']['account_ref'] : '';
+		if (!empty($reviews['requirements']['location_choices']) && $reviews['status']['connected'] == 1 && $reviews['oauth_value'] != '') $reviews['locations'] = $reviews['instance']->providerLocationChoices($reviews['integration']);
 		$reviews['location_error'] = strtolower(trim((string) ($reviews['locations']['error'] ?? '')));
 		$reviews['location_oauth_error'] = $reviews['instance']->providerOAuthError($reviews['integration']['provider'],$reviews['location_error']) ? 1 : 0;
+		$reviews['oauth_options'] = $reviews['instance']->oauthIntegrationOptions($reviews['integration_id']);
+		if ($reviews['oauth_value'] != '' && !in_array($reviews['oauth_value'],array_column($reviews['oauth_options'],'value'),true)) array_unshift($reviews['oauth_options'],['name'=>$reviews['requirements']['oauth_provider'].' / '.$reviews['integration']['account_ref'],'value'=>$reviews['oauth_value']]);
 		$reviews['integration_inputs'] = [
 			'active'=>['type'=>'checkbox'],
-			'label'=>[],
-			'provider'=>['required'=>true,'type'=>'select','options'=>$reviews['integration_provider_options'],'change'=>['function'=>'reviews__provider_change']]
+			'label'=>[]
 		];
-		if (!empty($reviews['requirements']['oauth']) && !empty($reviews['requirements']['oauth_account_options'])) $reviews['integration_inputs']['account_ref'] = ['type'=>'select','required'=>true,'options'=>$reviews['requirements']['oauth_account_options'],'change'=>['function'=>'reviews__provider_change']];
+		if (!empty($reviews['oauth_options'])) $reviews['integration_inputs']['oauth_account'] = ['type'=>'select','required'=>true,'options'=>$reviews['oauth_options'],'change'=>['function'=>'reviews__provider_change']];
+		$reviews['integration_inputs']['provider'] = ['type'=>'hidden'];
+		$reviews['integration_inputs']['account_ref'] = ['type'=>'hidden'];
 		foreach (($reviews['requirements']['form_fields'] ?? []) as $reviews['field'] => $reviews['definition']) $reviews['integration_inputs'][$reviews['field']] = $reviews['definition'];
 		$reviews['integration_values'] = [
 			'active'=>$reviews['integration']['active'],
 			'label'=>$reviews['integration']['label'],
-			'provider'=>$reviews['integration']['provider']
+			'oauth_account'=>$reviews['oauth_value'],
+			'provider'=>$reviews['integration']['provider'],
+			'account_ref'=>$reviews['integration']['account_ref']
 		];
-		if (isset($reviews['integration_inputs']['account_ref'])) $reviews['integration_values']['account_ref'] = $reviews['integration']['account_ref'];
 		foreach (($reviews['requirements']['form_values'] ?? []) as $reviews['field'] => $reviews['value']) $reviews['integration_values'][$reviews['field']] = $reviews['value'];
 		foreach (array_keys($reviews['integration_inputs']) as $reviews['field']) $reviews['integration_inputs'][$reviews['field']]['option'] = 'integration_'.$reviews['field'];
 		$reviews['formitems'] = create__form_items($reviews['integration_inputs'],$reviews['integration_values'],'reviews_integration',$user['language']);
@@ -144,10 +151,13 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		$reviews['integration_form'] = [
 			['id'=>$settings['key'].'-integration-id','type'=>'form','classes'=>['forms__hidden'],'form'=>['type'=>'hidden','option'=>'integration_id','value'=>$reviews['integration']['id']]],
 			['id'=>$settings['key'].'-integration-state','tag'=>'span','classes'=>['forms__hidden'],'attributes'=>['data-reviews-integration'=>$reviews['integration']['id'],'data-reviews-provider'=>$reviews['integration']['provider'],'data-reviews-connected'=>intval($reviews['status']['connected'] ?? 0)]],
-			['id'=>$settings['key'].'-integration-label','type'=>'form','classes'=>['forms__item'],'form'=>$reviews['formitems']['label']],
-			['id'=>$settings['key'].'-integration-provider','type'=>'form','classes'=>['forms__item'],'form'=>$reviews['formitems']['provider']]
+			['id'=>$settings['key'].'-integration-provider','type'=>'form','classes'=>['forms__hidden'],'form'=>$reviews['formitems']['provider']],
+			['id'=>$settings['key'].'-integration-account-ref','type'=>'form','classes'=>['forms__hidden'],'form'=>$reviews['formitems']['account_ref']],
+			['id'=>$settings['key'].'-integration-label','type'=>'form','classes'=>['forms__item'],'form'=>$reviews['formitems']['label']]
 		];
-		if (!empty($reviews['requirements']['oauth']) && intval($reviews['requirements']['oauth_accounts'] ?? 0) == 0) $reviews['integration_form'][] = [
+		if (!empty($reviews['requirements']['oauth']) || $reviews['integration_id'] == 'new') $reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-oauth-hint','tag'=>'p','classes'=>['forms__item'],'description'=>language__get($user['language'],'_reviews_integration_oauth_hint')];
+		if (isset($reviews['formitems']['oauth_account'])) $reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-oauth-account','type'=>'form','classes'=>['forms__item'],'form'=>$reviews['formitems']['oauth_account']];
+		if (!empty($reviews['requirements']['oauth']) && !isset($reviews['formitems']['oauth_account'])) $reviews['integration_form'][] = [
 			'id'=>$settings['key'].'-integration-oauth-link',
 			'tag'=>'button',
 			'classes'=>['system-button','forms__item'],
@@ -174,9 +184,8 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 			if (!empty($reviews['requirements']['location_choices']) && $reviews['status']['connected'] == 1 && trim((string) ($reviews['status']['target']['location_name'] ?? '')) == '' && !$reviews['locations']['result'] && $reviews['locations']['error'] != '') $reviews['status_items'][] = ['id'=>$settings['key'].'-integration-status-location-error','description'=>language__get($user['language'],$reviews['requirements']['location_select']['label'] ?? '_reviews_integration_target'),'subtitle'=>htmlspecialchars($reviews['locations']['error'],ENT_QUOTES,'UTF-8')];
 			$reviews['status_dropdown'] = !empty($reviews['status_items']) ? create__dropdown($settings['key'].'-integration-status',language__get($user['language'],'_reviews_integration_status'),create__list($settings['key'].'-integration-status-list',$reviews['status_items'],['clear'=>true]),['attributes'=>['data-details-independent'=>'true']]) : [];
 		}
-		if (isset($reviews['formitems']['account_ref'])) $reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-account-ref','type'=>'form','classes'=>['forms__item'],'form'=>$reviews['formitems']['account_ref']];
 		foreach (($reviews['requirements']['form_fields'] ?? []) as $reviews['field'] => $reviews['definition']) if (($reviews['formitems'][$reviews['field']]['type'] ?? '') != 'hidden') $reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-'.$reviews['field'],'type'=>'form','classes'=>['forms__item'],'form'=>$reviews['formitems'][$reviews['field']]];
-		if (!empty($reviews['requirements']['location_choices']) && $reviews['status']['connected'] == 1 && $reviews['locations']['result'] && count($reviews['locations']['items']) > 0) {
+		if (!empty($reviews['requirements']['location_choices']) && $reviews['status']['connected'] == 1 && $reviews['oauth_value'] != '' && $reviews['locations']['result'] && count($reviews['locations']['items']) > 0) {
 			$reviews['location_value'] = '';
 			foreach ($reviews['locations']['items'] as $reviews['location_option']) {
 				$reviews['location_decoded'] = $reviews['instance']->decode($reviews['location_option']['value'] ?? '');
@@ -194,7 +203,7 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		if ($reviews['integration_id'] != 'new' && !empty($reviews['status_dropdown'])) $reviews['integration_form'][] = $reviews['status_dropdown'];
 		$reviews['connect_label'] = !empty($reviews['requirements']['connect']) && ($reviews['status']['connected'] != 1 || $reviews['location_oauth_error'] == 1) ? language__get($user['language'],'_reviews_integration_manage_oauth') : false;
 		$reviews['connect_action'] = $reviews['connect_label'] ? ['load'=>['function'=>'reviews__open_integrations']] : [];
-		$reviews['submit_label'] = !empty($reviews['requirements']['location_choices']) && intval($reviews['status']['connected'] ?? 0) == 1 && trim((string) ($reviews['integration']['target']['location_name'] ?? '')) == '' && !empty($reviews['locations']['result']) ? language__get($user['language'],'_reviews_integration_save_location') : language__get($user['language'],'_settings_form_save');
+		$reviews['submit_label'] = !empty($reviews['requirements']['oauth']) && $reviews['oauth_value'] == '' ? false : (!empty($reviews['requirements']['location_choices']) && intval($reviews['status']['connected'] ?? 0) == 1 && trim((string) ($reviews['integration']['target']['location_name'] ?? '')) == '' && !empty($reviews['locations']['result']) ? language__get($user['language'],'_reviews_integration_save_location') : language__get($user['language'],'_settings_form_save'));
 		$reviews['submit_action'] = ['load'=>['action'=>'save_integration','id'=>$reviews['integration_id']]];
 		$reviews['output']['lists'] = create__form($settings['form'],$reviews['integration_form'],$reviews['integration_id'] == 'new' ? language__get($user['language'],'_reviews_integration_new') : language__get_parsed($user['language'],'_reviews_integration_edit',['label'=>$reviews['integration']['label']]),$reviews['submit_label'],$reviews['submit_action'],[],$reviews['connect_label'],$reviews['connect_action']);
 		$_POST['handled'] = true;

@@ -31,6 +31,13 @@ function reviews__provider_change(obj) {
 	let post = new FormData();
 	for (let key in processed.data) post.append(key,typeof processed.data[key] === 'object' ? JSON.stringify(processed.data[key]) : processed.data[key]);
 	if ((elem.name || elem.dataset.name || '') == 'integration_provider') post.set('integration_provider',elem.getAttribute('data-value') || elem.value || post.get('integration_provider') || '');
+	if ((elem.name || elem.dataset.name || '') == 'integration_oauth_account') {
+		let value = elem.getAttribute('data-value') || elem.value || post.get('integration_oauth_account') || '';
+		let parts = value.split('|');
+		post.set('integration_oauth_account',value);
+		if (parts[0]) post.set('integration_provider',parts[0]);
+		if (parts[1]) post.set('integration_account_ref',parts[1]);
+	}
 	post.set('action','load');
 	post.set('id','integration-' + (post.get('integration_id') || 'new'));
 	settings__load(form,post);

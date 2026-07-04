@@ -27,6 +27,8 @@
   "_reviews_integration_label": "Etiqueta",
   "_reviews_integration_provider": "Provider",
   "_reviews_integration_account_ref": "Cuenta OAuth",
+  "_reviews_integration_oauth_account": "Seleccionar integracion",
+  "_reviews_integration_oauth_hint": "Las nuevas integraciones de reseñas deben conectarse primero con OAuth en Ajustes > Sitio web > Integraciones.",
   "_reviews_integration_tripadvisor_api_key": "Clave API de Tripadvisor",
   "_reviews_integration_tripadvisor_location_id": "ID de ubicación de Tripadvisor",
   "_reviews_integration_connected": "Conectado",
