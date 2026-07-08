@@ -14,10 +14,12 @@ class FiCMSReviews {
 	private $basePath = '';
 	private $dataFile = '';
 	private $integrationsFile = '';
+	private $providersFile = '';
 	private $defaultLanguage = 'de';
 	private $installedLanguages = [];
 	private $data = [];
 	private $integrations = [];
+	private $providers = [];
 	private $normalizer;
 	private $providerRegistry;
 	private $rows;
@@ -28,6 +30,7 @@ class FiCMSReviews {
 		if (defined('PLUGINPATH') && is_dir(PLUGINPATH.'/'.basename($this->basePath))) $this->basePath = PLUGINPATH.'/'.basename($this->basePath);
 		$this->dataFile = $this->basePath.'/data/reviews.json';
 		$this->integrationsFile = $this->basePath.'/data/integrations.json';
+		$this->providersFile = $this->basePath.'/data/providers.json';
 		$this->defaultLanguage = trim((string) $defaultLanguage) !== '' ? trim((string) $defaultLanguage) : (string) ($GLOBALS['site']['default_language'] ?? ($_SESSION['language'] ?? 'de'));
 		$this->installedLanguages = is_array($installedLanguages) ? array_values($installedLanguages) : [];
 		if (empty($this->installedLanguages) && isset($GLOBALS['site']['installed_languages']) && is_array($GLOBALS['site']['installed_languages'])) $this->installedLanguages = array_values($GLOBALS['site']['installed_languages']);
@@ -37,6 +40,7 @@ class FiCMSReviews {
 		$this->rows = new FiCMSReviewsRows($this,$this->normalizer,$this->installedLanguages);
 		$this->data = $this->load();
 		$this->integrations = $this->loadIntegrations();
+		$this->providers = $this->loadProviders();
 	}
 
 	public function dataFile() {
@@ -45,6 +49,10 @@ class FiCMSReviews {
 
 	public function integrationsFile() {
 		return $this->integrationsFile;
+	}
+
+	public function providersFile() {
+		return $this->providersFile;
 	}
 
 	public function all() {
@@ -93,10 +101,10 @@ class FiCMSReviews {
 			$entry['text'] = $this->normalizer->text($post['text'] ?? []);
 			$entry['rating'] = max(1,min(5,intval($post['rating'] ?? 5)));
 			$entry['date'] = intval($post['date'] ?? ($_SERVER['now'] ?? time()));
-			$entry['provider'] = 'local';
-			$entry['source_type'] = 'local';
+			$entry['provider'] = $this->reviewProvider($post['provider'] ?? 'local');
+			$entry['source_type'] = $entry['provider'] == 'local' ? 'local' : 'manual';
 			$entry['external_id'] = '';
-			$entry['external_url'] = '';
+			$entry['external_url'] = $this->normalizer->url($post['external_url'] ?? '');
 			$entry['external_updated'] = 0;
 			$entry['imported'] = 0;
 			$entry['read_only'] = 0;
@@ -112,6 +120,10 @@ class FiCMSReviews {
 	public function providers() {
 		$definitions = $this->providerDefinitions();
 		$providers = ['local'=>['name'=>'Local','value'=>'local']];
+		foreach ($this->providers['providers'] as $provider) {
+			if (empty($provider['active'])) continue;
+			$providers[$provider['id']] = ['name'=>$provider['label'],'value'=>$provider['id']];
+		}
 		foreach ($this->data['reviews'] as $entry) {
 			$entry = $this->normalizeEntry($entry['id'] ?? '',$entry);
 			if ($entry['provider'] == '') continue;
@@ -126,7 +138,9 @@ class FiCMSReviews {
 	}
 
 	public function providerDefinitions() {
-		return $this->providerRegistry->definitions();
+		$definitions = $this->providerRegistry->definitions();
+		foreach ($this->providers['providers'] as $provider) $definitions[$provider['id']] = array_merge($definitions[$provider['id']] ?? ['oauth'=>0,'sync'=>0],['name'=>$provider['label']]);
+		return $definitions;
 	}
 
 	public function oauthIntegrationOptions($currentId = '') {
@@ -179,7 +193,14 @@ class FiCMSReviews {
 	}
 
 	public function getProviderLogo($provider = '') {
-		return $this->providerRegistry->logo($provider);
+		$icon = $this->providerIcon($provider);
+		return $icon != '' ? $icon : $this->providerRegistry->logo($provider);
+	}
+
+	public function providerIconJson($provider = '') {
+		$provider = $this->validProvider($provider) ? trim((string) $provider) : '';
+		$mjs = $provider != '' && isset($this->providers['providers'][$provider]) ? $this->providers['providers'][$provider]['mjs'] : [];
+		return function_exists('images__get_relevant_json') ? images__get_relevant_json($mjs,false) : false;
 	}
 
 	public function providerDisplayText($provider, $text, $language) {
@@ -189,6 +210,61 @@ class FiCMSReviews {
 
 	public function integrations() {
 		return $this->integrations['integrations'];
+	}
+
+	public function providerSettings() {
+		$settings = [];
+		foreach ($this->providerRegistry->definitions() as $id => $definition) {
+			$provider = $this->providers['providers'][$id] ?? $this->blankProvider($id);
+			$provider['label'] = trim((string) ($provider['label'] ?? '')) != '' ? $provider['label'] : trim((string) ($definition['name'] ?? ucfirst($id)));
+			$provider['system'] = 1;
+			$settings[$id] = $provider;
+		}
+		foreach ($this->providers['providers'] as $id => $provider) {
+			$provider['system'] = isset($settings[$id]) ? 1 : 0;
+			$settings[$id] = $provider;
+		}
+		ksort($settings);
+		return $settings;
+	}
+
+	public function providerSetting($id = '') {
+		$id = $this->validProvider($id) ? trim((string) $id) : '';
+		if ($id == '' || $id == 'new') return $this->blankProvider('new');
+		$settings = $this->providerSettings();
+		return $settings[$id] ?? $this->blankProvider($id);
+	}
+
+	public function blankProvider($id = 'new') {
+		return ['id'=>$id,'label'=>'','active'=>1,'mjs'=>[],'system'=>0];
+	}
+
+	public function saveProviderFromPost($id, $post) {
+		$original = $this->validProvider($id) ? trim((string) $id) : '';
+		$postedId = strtolower(trim((string) ($post['provider_id'] ?? '')));
+		$saveId = $this->validProvider($postedId) ? $postedId : $original;
+		if ($saveId == '' || $saveId == 'new') return ['result'=>false,'checkresult'=>'provider_id_missing'];
+		$existing = $this->providers['providers'][$saveId] ?? $this->blankProvider($saveId);
+		$definition = $this->providerRegistry->definitions()[$saveId] ?? [];
+		$provider = [
+			'id'=>$saveId,
+			'label'=>$this->normalizer->plainText($post['provider_label'] ?? ($existing['label'] ?? '')),
+			'active'=>!empty($post['provider_active']) ? 1 : 0,
+			'mjs'=>$this->providerMediaMjs($post['mjs'] ?? ($existing['mjs'] ?? []))
+		];
+		if ($provider['label'] == '') $provider['label'] = trim((string) ($definition['name'] ?? ucfirst($saveId)));
+		unset($this->providers['providers'][$original]);
+		$this->providers['providers'][$saveId] = $this->normalizeProvider($saveId,array_merge($existing,$provider));
+		$this->providers['updated'] = intval($_SERVER['now'] ?? time());
+		return ['result'=>$this->writeProviders(),'id'=>$saveId];
+	}
+
+	public function deleteProvider($id) {
+		$id = $this->validProvider($id) ? trim((string) $id) : '';
+		if ($id == '' || !isset($this->providers['providers'][$id])) return false;
+		unset($this->providers['providers'][$id]);
+		$this->providers['updated'] = intval($_SERVER['now'] ?? time());
+		return $this->writeProviders();
 	}
 
 	public function providerReviewCount($provider) {
@@ -356,6 +432,22 @@ class FiCMSReviews {
 		return $data;
 	}
 
+	private function loadProviders() {
+		$data = ['providers'=>[],'updated'=>0];
+		if (is_file($this->providersFile)) {
+			$loaded = $this->decode(file_get_contents($this->providersFile));
+			if (is_array($loaded)) $data = array_replace_recursive($data,$loaded);
+		}
+		if (!is_array($data['providers'] ?? null)) $data['providers'] = [];
+		foreach ($data['providers'] as $id => $provider) {
+			$provider = $this->normalizeProvider(is_string($id) ? $id : '',$provider);
+			unset($data['providers'][$id]);
+			if ($provider['id'] != '') $data['providers'][$provider['id']] = $provider;
+		}
+		ksort($data['providers']);
+		return $data;
+	}
+
 	public function write() {
 		$this->data['ratings'] = $this->aggregateRatings($this->data['reviews']);
 		return FiCMSReviewsJsonStorage::write($this->dataFile,$this->data);
@@ -367,6 +459,10 @@ class FiCMSReviews {
 
 	private function writeIntegrations() {
 		return FiCMSReviewsJsonStorage::write($this->integrationsFile,$this->integrations);
+	}
+
+	private function writeProviders() {
+		return FiCMSReviewsJsonStorage::write($this->providersFile,$this->providers);
 	}
 
 	private function normalizeEntry($id, $entry) {
@@ -427,6 +523,35 @@ class FiCMSReviews {
 		];
 		$providerInstance = $this->provider($provider);
 		return $providerInstance ? $providerInstance->normalizeIntegration($normalized) : $normalized;
+	}
+
+	private function normalizeProvider($id, $provider) {
+		if (!is_array($provider)) $provider = [];
+		$id = $this->validProvider($provider['id'] ?? '') ? trim((string) $provider['id']) : ($this->validProvider($id) ? trim((string) $id) : '');
+		if ($id == 'new') $id = '';
+		if ($id == '') return ['id'=>'','label'=>'','active'=>0,'mjs'=>[]];
+		return [
+			'id'=>$id,
+			'label'=>$this->normalizer->plainText($provider['label'] ?? ucfirst($id)),
+			'active'=>isset($provider['active']) ? (!empty($provider['active']) ? 1 : 0) : 1,
+			'mjs'=>$this->providerMediaMjs($provider['mjs'] ?? [])
+		];
+	}
+
+	private function providerMediaMjs($value) {
+		$value = $this->decode($value);
+		if (!is_array($value)) return [];
+		$mjs = [];
+		foreach ($value as $key => $entry) {
+			$key = preg_replace('/[^a-z0-9_-]+/i','',trim((string) $key));
+			if ($key == '' || !is_array($entry) || !is_array($entry['media'] ?? null)) continue;
+			foreach ($entry['media'] as $media) {
+				if (!is_array($media) || !isset($media['id']) || !is_numeric($media['id'])) continue;
+				$mjs[$key]['media'][] = ['id'=>intval($media['id']),'options'=>is_array($media['options'] ?? null) ? $media['options'] : []];
+			}
+			if (isset($mjs[$key])) $mjs[$key]['options'] = is_array($entry['options'] ?? null) ? $entry['options'] : [];
+		}
+		return $mjs;
 	}
 
 	public function storeIntegration($integration) {
@@ -591,6 +716,19 @@ class FiCMSReviews {
 
 	private function validProvider($provider) {
 		return FiCMSReviewsNormalizer::validProviderKey($provider);
+	}
+
+	private function reviewProvider($provider) {
+		$provider = $this->validProvider($provider) ? trim((string) $provider) : 'local';
+		if ($provider == 'local') return 'local';
+		return isset($this->providerDefinitions()[$provider]) ? $provider : 'local';
+	}
+
+	private function providerIcon($provider) {
+		$provider = $this->validProvider($provider) ? trim((string) $provider) : '';
+		if ($provider == '' || !isset($this->providers['providers'][$provider])) return '';
+		$icon = $this->providerIconJson($provider);
+		return is_array($icon) ? trim((string) ($icon['src'] ?? '')) : '';
 	}
 
 	private function validIntegrationId($id) {

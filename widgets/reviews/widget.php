@@ -109,7 +109,7 @@ $reviews['definition'] = [
 	'watch'=>[
 		'versions'=>($reviews['block_id'] > 0 ? ['block:'.$reviews['block_id']] : []),
 		'values'=>[],
-		'files'=>array_values(array_filter(array_merge([__FILE__,$reviews['structure_file'],$reviews['instance']->dataFile(),$reviews['instance']->integrationsFile()],$reviews['block_files'])))
+		'files'=>array_values(array_filter(array_merge([__FILE__,$reviews['structure_file'],$reviews['instance']->dataFile(),$reviews['instance']->integrationsFile(),$reviews['instance']->providersFile()],$reviews['block_files'])))
 	],
 	'policy'=>['cacheable'=>($reviews['block_id'] > 0 && (!isset($service['cache']['policy']['cacheable']) || (int) $service['cache']['policy']['cacheable'] === 1)) ? 1 : 0],
 	'meta'=>[]

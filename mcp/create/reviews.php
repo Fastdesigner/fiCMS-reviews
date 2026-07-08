@@ -2,7 +2,7 @@
 
 if (!$site['onsite']) return false;
 
-if ($mcp['mode'] === 'capabilities') return ['tool'=>'create','type'=>'reviews','text'=>'use create("reviews", {author, rating, text, source?, lid?, published?, featured?}) to create a local review as admin. Visitor chat submissions use send("reviews", data).'];
+if ($mcp['mode'] === 'capabilities') return ['tool'=>'create','type'=>'reviews','text'=>'use create("reviews", {author, rating, text, source?, provider?, external_url?, lid?, published?, featured?}) to create a local review as admin. Visitor chat submissions use send("reviews", data).'];
 if ($mcp['mode'] === 'schema') return [];
 if (($mcp['scope'] ?? 'user') !== 'admin') return ['error'=>'admin scope required.'];
 
@@ -23,6 +23,8 @@ if (!$reviewsMcp['hasText']) return ['error'=>'text is required.'];
 $reviewsMcp['post'] = [
 	'author'=>trim((string) ($reviewsMcp['data']['author'] ?? '')),
 	'source'=>trim((string) ($reviewsMcp['data']['source'] ?? '')),
+	'provider'=>trim((string) ($reviewsMcp['data']['provider'] ?? 'local')),
+	'external_url'=>trim((string) ($reviewsMcp['data']['external_url'] ?? '')),
 	'rating'=>intval($reviewsMcp['data']['rating']),
 	'text'=>is_array($reviewsMcp['data']['text']) ? $reviewsMcp['data']['text'] : [$reviewsMcp['language']=>trim((string) $reviewsMcp['data']['text'])],
 	'lid'=>isset($reviewsMcp['data']['lid']) ? $reviewsMcp['data']['lid'] : [$reviewsMcp['language']],
