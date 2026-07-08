@@ -214,14 +214,10 @@ class FiCMSReviews {
 
 	public function providerSettings() {
 		$settings = [];
-		foreach ($this->providerRegistry->definitions() as $id => $definition) {
-			$provider = $this->providers['providers'][$id] ?? $this->blankProvider($id);
-			$provider['label'] = trim((string) ($provider['label'] ?? '')) != '' ? $provider['label'] : trim((string) ($definition['name'] ?? ucfirst($id)));
-			$provider['system'] = 1;
-			$settings[$id] = $provider;
-		}
+		$definitions = $this->providerRegistry->definitions();
 		foreach ($this->providers['providers'] as $id => $provider) {
-			$provider['system'] = isset($settings[$id]) ? 1 : 0;
+			$provider['system'] = isset($definitions[$id]) ? 1 : 0;
+			if ($provider['label'] == '') $provider['label'] = trim((string) ($definitions[$id]['name'] ?? ucfirst($id)));
 			$settings[$id] = $provider;
 		}
 		ksort($settings);
@@ -257,6 +253,17 @@ class FiCMSReviews {
 		$this->providers['providers'][$saveId] = $this->normalizeProvider($saveId,array_merge($existing,$provider));
 		$this->providers['updated'] = intval($_SERVER['now'] ?? time());
 		return ['result'=>$this->writeProviders(),'id'=>$saveId];
+	}
+
+	public function saveProviderIconFromPost($provider, $post) {
+		$provider = $this->validProvider($provider) ? trim((string) $provider) : '';
+		if ($provider == '' || !array_key_exists('mjs',$post)) return true;
+		$existing = $this->providers['providers'][$provider] ?? $this->blankProvider($provider);
+		$existing['mjs'] = $this->providerMediaMjs($post['mjs'] ?? []);
+		if (empty($existing['mjs']) && empty($existing['system']) && trim((string) ($existing['label'] ?? '')) == '') unset($this->providers['providers'][$provider]);
+		else $this->providers['providers'][$provider] = $this->normalizeProvider($provider,$existing);
+		$this->providers['updated'] = intval($_SERVER['now'] ?? time());
+		return $this->writeProviders();
 	}
 
 	public function deleteProvider($id) {
@@ -302,6 +309,7 @@ class FiCMSReviews {
 			'active'=>($original == '' || $original == 'new') && !isset($post['integration_active']) ? 1 : (!empty($post['integration_active']) ? 1 : 0),
 			'account_ref'=>$oauth['account_ref'] ?? (trim((string) ($post['integration_account_ref'] ?? ($existing['account_ref'] ?? 'default'))) ?: 'default')
 		]);
+		$this->saveProviderIconFromPost($provider,$post);
 		$integration = $this->provider($provider)->saveIntegration($integration,$post,$existing);
 		foreach ($this->integrations['integrations'] as $key => $entry) {
 			if ($entry['id'] != $original && $entry['id'] != $saveId) continue;

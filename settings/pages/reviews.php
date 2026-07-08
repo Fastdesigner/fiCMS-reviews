@@ -8,13 +8,12 @@ $reviews = [
 	'filter'=>['page'=>1,'count'=>20,'sort'=>'date','direction'=>'DESC','search'=>[],'attributes'=>['published'=>'','featured'=>'','rating'=>'','lid'=>'','provider'=>'']],
 	'filter_options'=>[],
 	'output'=>['lists'=>[],'datalists'=>[],'result'=>[]],
-	'entries'=>['reviews'=>[],'providers'=>[],'integrations'=>[]],
+	'entries'=>['reviews'=>[],'integrations'=>[]],
 	'tablist'=>[],
 	'attributes'=>[],
 	'ratings'=>[],
 	'filter_ratings'=>[],
 	'languages'=>[],
-	'provider_items'=>[],
 	'integration_items'=>[],
 	'items'=>[],
 	'select'=>'',
@@ -125,6 +124,17 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		$_POST['handled'] = true;
 	}
 
+	if (!isset($_POST['handled']) && $reviews['integration_load']) {
+		if ($reviews['integration_id'] == 'new' && ($_POST['integration_oauth_account'] ?? '') == 'manual-source') {
+			$reviews['id'] = 'provider-new';
+			$reviews['provider_id'] = 'new';
+			$reviews['provider_load'] = true;
+			unset($_POST['handled']);
+			$_POST['id'] = 'provider-new';
+			$_POST['integration_oauth_account'] = '';
+		}
+	}
+
 	if (!isset($_POST['handled']) && $reviews['provider_load']) {
 		$reviews['provider'] = $reviews['provider_id'] == 'new' ? $reviews['instance']->blankProvider('new') : $reviews['instance']->providerSetting($reviews['provider_id']);
 		$reviews['provider_inputs'] = [
@@ -136,14 +146,15 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		$reviews['provider_formitems'] = create__form_items($reviews['provider_inputs'],$reviews['provider'],'reviews_provider',$user['language']);
 		$reviews['provider_formitems']['active']['checked'] = intval($reviews['provider']['active'] ?? 0) == 1;
 		$reviews['provider_icon'] = $reviews['provider']['id'] != 'new' ? $reviews['instance']->providerIconJson($reviews['provider']['id']) : false;
+		$reviews['provider_current_icon'] = $reviews['provider']['id'] != 'new' ? $reviews['instance']->getProviderLogo($reviews['provider']['id']) : '';
 		$reviews['provider_data_form'] = [
 			['id'=>$settings['key'].'-provider-form-id','type'=>'form','classes'=>['forms__item'],'form'=>$reviews['provider_formitems']['id']],
 			['id'=>$settings['key'].'-provider-form-label','type'=>'form','classes'=>['forms__item'],'form'=>$reviews['provider_formitems']['label']],
 			['id'=>$settings['key'].'-provider-form-active','type'=>'form','classes'=>['forms__item'],'form'=>$reviews['provider_formitems']['active']]
 		];
-		$reviews['provider_icon_form'] = [
-			['id'=>$settings['key'].'-provider-form-icon','type'=>'form','classes'=>['forms__item','img--obj-contain'],'form'=>['type'=>'media','name'=>language__get($user['language'],'_reviews_provider_icon'),'option'=>'provider_icon','value'=>$reviews['provider_icon']]]
-		];
+		$reviews['provider_icon_form'] = [];
+		if ($reviews['provider_current_icon'] != '') $reviews['provider_icon_form'][] = ['id'=>$settings['key'].'-provider-current-icon','tag'=>'li','description'=>language__get($user['language'],'_reviews_provider_current_icon'),'image'=>$reviews['provider_current_icon']];
+		$reviews['provider_icon_form'][] = ['id'=>$settings['key'].'-provider-form-icon','type'=>'form','classes'=>['forms__item','img--obj-contain'],'form'=>['type'=>'media','name'=>language__get($user['language'],'_reviews_provider_icon'),'option'=>'provider_icon','value'=>$reviews['provider_icon']]];
 		$reviews['provider_form_tablist'] = [
 			'data'=>language__get($user['language'],'_reviews_provider_tab_data'),
 			'icon'=>language__get($user['language'],'_reviews_provider_tab_icon')
@@ -180,6 +191,7 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 		$reviews['location_error'] = strtolower(trim((string) ($reviews['locations']['error'] ?? '')));
 		$reviews['location_oauth_error'] = $reviews['instance']->providerOAuthError($reviews['integration']['provider'],$reviews['location_error']) ? 1 : 0;
 		$reviews['oauth_options'] = $reviews['instance']->oauthIntegrationOptions($reviews['integration_id']);
+		if ($reviews['integration_id'] == 'new') $reviews['oauth_options'][] = ['name'=>language__get($user['language'],'_reviews_provider_custom'),'value'=>'manual-source'];
 		if ($reviews['oauth_value'] != '' && !in_array($reviews['oauth_value'],array_column($reviews['oauth_options'],'value'),true)) array_unshift($reviews['oauth_options'],['name'=>$reviews['requirements']['oauth_provider'].' / '.$reviews['integration']['account_ref'],'value'=>$reviews['oauth_value']]);
 		$reviews['integration_inputs'] = [
 			'active'=>['type'=>'checkbox'],
@@ -253,6 +265,12 @@ if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key
 			$reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-'.$reviews['integration']['provider'].'-location','type'=>'form','classes'=>['forms__item'],'form'=>['type'=>'select','option'=>$reviews['requirements']['location_select']['option'] ?? 'integration_location','name'=>language__get($user['language'],$reviews['requirements']['location_select']['label'] ?? '_reviews_integration_target'),'options'=>$reviews['location_options'],'value'=>$reviews['location_value']]];
 		}
 		if ($reviews['integration_id'] != 'new' && !empty($reviews['status_dropdown'])) $reviews['integration_form'][] = $reviews['status_dropdown'];
+		if ($reviews['integration_id'] != 'new') {
+			$reviews['provider_current_icon'] = $reviews['instance']->getProviderLogo($reviews['integration']['provider']);
+			$reviews['provider_icon'] = $reviews['instance']->providerIconJson($reviews['integration']['provider']);
+			if ($reviews['provider_current_icon'] != '') $reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-provider-current-icon','tag'=>'li','description'=>language__get($user['language'],'_reviews_provider_current_icon'),'image'=>$reviews['provider_current_icon']];
+			$reviews['integration_form'][] = ['id'=>$settings['key'].'-integration-provider-icon','type'=>'form','classes'=>['forms__item','img--obj-contain'],'form'=>['type'=>'media','name'=>language__get($user['language'],'_reviews_provider_icon'),'option'=>'provider_icon','value'=>$reviews['provider_icon']]];
+		}
 		$reviews['connect_label'] = !empty($reviews['requirements']['connect']) && ($reviews['status']['connected'] != 1 || $reviews['location_oauth_error'] == 1) ? language__get($user['language'],'_reviews_integration_manage_oauth') : false;
 		$reviews['connect_action'] = $reviews['connect_label'] ? ['load'=>['function'=>'reviews__open_integrations']] : [];
 		$reviews['submit_label'] = !empty($reviews['requirements']['oauth']) && $reviews['oauth_value'] == '' ? false : (!empty($reviews['requirements']['location_choices']) && intval($reviews['status']['connected'] ?? 0) == 1 && trim((string) ($reviews['integration']['target']['location_name'] ?? '')) == '' && !empty($reviews['locations']['result']) ? language__get($user['language'],'_reviews_integration_save_location') : language__get($user['language'],'_settings_form_save'));
@@ -343,19 +361,6 @@ $reviews['items'][] = ['id'=>$settings['key'].'-new','tag'=>'li','description'=>
 $reviews['entries']['reviews'][] = create__filterlist($settings['key'],$reviews['filter_options'],$reviews['filter']);
 $reviews['entries']['reviews'][] = create__list($settings['key'].'-list',$reviews['items'],['clear'=>true,'sort'=>true]);
 
-foreach ($reviews['instance']->providerSettings() as $reviews['provider']) {
-	$reviews['provider_logo'] = $reviews['instance']->getProviderLogo($reviews['provider']['id']);
-	$reviews['provider_count'] = $reviews['instance']->providerReviewCount($reviews['provider']['id']);
-	$reviews['provider_state'] = !empty($reviews['provider']['active']) ? language__get($user['language'],'_option_yes') : language__get($user['language'],'_option_no');
-	$reviews['provider_subtitle'] = language__get($user['language'],'_reviews_provider_active').': '.$reviews['provider_state'].' · '.$reviews['provider_count'].' '.language__get($user['language'],'_reviews_tab_reviews');
-	$reviews['provider_item'] = ['id'=>$settings['key'].'-provider-'.$reviews['provider']['id'].'-row','tag'=>'li','description'=>$reviews['provider']['label'],'subtitle'=>$reviews['provider_subtitle'],'actions'=>['load'=>['id'=>'provider-'.$reviews['provider']['id'],'form'=>true]]];
-	if ($reviews['provider_logo'] != '') $reviews['provider_item']['image'] = $reviews['provider_logo'];
-	if (empty($reviews['provider']['system'])) $reviews['provider_item']['actions']['delete'] = ['id'=>$reviews['provider']['id'],'action'=>'delete_provider'];
-	$reviews['provider_items'][] = $reviews['provider_item'];
-}
-$reviews['provider_items'][] = ['id'=>$settings['key'].'-provider-new','tag'=>'li','description'=>language__get($user['language'],'_reviews_provider_new'),'classes'=>['system-next'],'actions'=>['load'=>['id'=>'provider-new','form'=>true]]];
-$reviews['entries']['providers'][] = create__list($settings['key'].'-providers-list',$reviews['provider_items'],['clear'=>true,'sort'=>true]);
-
 foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 	$reviews['status'] = $reviews['instance']->integrationStatus($reviews['integration']['id']);
 	$reviews['requirements'] = $reviews['instance']->providerRequirements($reviews['integration']['provider'],$reviews['integration']);
@@ -405,11 +410,21 @@ foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 		create__dropdown($settings['key'].'-'.$reviews['integration']['id'].'-dropdown',$reviews['integration']['label'],create__list($settings['key'].'-'.$reviews['integration']['id'].'-list',$reviews['details'],['clear'=>true]),$reviews['dropdown_options'])
 	]];
 }
+foreach ($reviews['instance']->providerSettings() as $reviews['provider']) {
+	if (!empty($reviews['provider']['system'])) continue;
+	$reviews['provider_logo'] = $reviews['instance']->getProviderLogo($reviews['provider']['id']);
+	$reviews['provider_count'] = $reviews['instance']->providerReviewCount($reviews['provider']['id']);
+	$reviews['provider_state'] = !empty($reviews['provider']['active']) ? language__get($user['language'],'_option_yes') : language__get($user['language'],'_option_no');
+	$reviews['provider_subtitle'] = language__get($user['language'],'_reviews_provider_custom').' · '.language__get($user['language'],'_reviews_provider_active').': '.$reviews['provider_state'].' · '.$reviews['provider_count'].' '.language__get($user['language'],'_reviews_tab_reviews');
+	$reviews['provider_item'] = ['id'=>$settings['key'].'-provider-'.$reviews['provider']['id'].'-row','tag'=>'li','description'=>$reviews['provider']['label'],'subtitle'=>$reviews['provider_subtitle'],'actions'=>['load'=>['id'=>'provider-'.$reviews['provider']['id'],'form'=>true],'delete'=>['id'=>$reviews['provider']['id'],'action'=>'delete_provider']]];
+	if ($reviews['provider_logo'] != '') $reviews['provider_item']['image'] = $reviews['provider_logo'];
+	$reviews['integration_items'][] = $reviews['provider_item'];
+}
 $reviews['integration_items'][] = ['id'=>$settings['key'].'-integration-new','tag'=>'li','description'=>language__get($user['language'],'_reviews_integration_new'),'classes'=>['system-next'],'actions'=>['load'=>['id'=>'integration-new','form'=>true]]];
 $reviews['entries']['integrations'][] = create__list($settings['key'].'-integrations-list',$reviews['integration_items'],['clear'=>true,'sort'=>true]);
 
-$reviews['tablist'] = ['reviews'=>language__get($user['language'],'_reviews_tab_reviews'),'providers'=>language__get($user['language'],'_reviews_tab_providers'),'integrations'=>language__get($user['language'],'_reviews_tab_integrations')];
-$reviews['attributes'] = ['reviews'=>['classes'=>['forms__wrapper']],'providers'=>['classes'=>['forms__wrapper']],'integrations'=>['classes'=>['forms__wrapper']]];
+$reviews['tablist'] = ['reviews'=>language__get($user['language'],'_reviews_tab_reviews'),'integrations'=>language__get($user['language'],'_reviews_tab_integrations')];
+$reviews['attributes'] = ['reviews'=>['classes'=>['forms__wrapper']],'integrations'=>['classes'=>['forms__wrapper']]];
 $reviews['tabs'] = create__tablist($settings['key'],$reviews['tablist'],$reviews['entries'],$reviews['attributes']);
 $reviews['output']['lists'][$settings['key'].'Content'] = ['id'=>$settings['key'].'Content','refresh'=>($_SERVER['now'] + 60),'items'=>[$reviews['tabs']['tabs'],$reviews['tabs']['panels']]];
 

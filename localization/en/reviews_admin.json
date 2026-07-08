@@ -1,7 +1,6 @@
 {
   "_settings_menu_reviews": "Reviews",
   "_reviews_tab_reviews": "Reviews",
-  "_reviews_tab_providers": "Sources",
   "_reviews_new": "New review",
   "_reviews_edit": "Edit review",
   "_reviews_save": "Save review",
@@ -27,6 +26,8 @@
   "_reviews_provider_label": "Label",
   "_reviews_provider_active": "Source active",
   "_reviews_provider_icon": "Icon",
+  "_reviews_provider_current_icon": "Current icon",
+  "_reviews_provider_custom": "Custom source",
   "_reviews_provider_tab_data": "Data",
   "_reviews_provider_tab_icon": "Icon",
   "_reviews_tab_integrations": "Integrations",

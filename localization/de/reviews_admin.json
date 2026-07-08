@@ -1,7 +1,6 @@
 {
   "_settings_menu_reviews": "Bewertungen",
   "_reviews_tab_reviews": "Bewertungen",
-  "_reviews_tab_providers": "Quellen",
   "_reviews_new": "Neue Bewertung",
   "_reviews_edit": "Bewertung bearbeiten",
   "_reviews_save": "Bewertung speichern",
@@ -27,6 +26,8 @@
   "_reviews_provider_label": "Bezeichnung",
   "_reviews_provider_active": "Quelle aktiv",
   "_reviews_provider_icon": "Icon",
+  "_reviews_provider_current_icon": "Aktuelles Icon",
+  "_reviews_provider_custom": "Eigene Quelle",
   "_reviews_provider_tab_data": "Daten",
   "_reviews_provider_tab_icon": "Icon",
   "_reviews_tab_integrations": "Integrationen",

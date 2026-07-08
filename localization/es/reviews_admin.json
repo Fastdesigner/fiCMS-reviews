@@ -1,7 +1,6 @@
 {
   "_settings_menu_reviews": "Reseñas",
   "_reviews_tab_reviews": "Reseñas",
-  "_reviews_tab_providers": "Fuentes",
   "_reviews_new": "Nueva reseña",
   "_reviews_edit": "Editar reseña",
   "_reviews_save": "Guardar reseña",
@@ -27,6 +26,8 @@
   "_reviews_provider_label": "Etiqueta",
   "_reviews_provider_active": "Fuente activa",
   "_reviews_provider_icon": "Icono",
+  "_reviews_provider_current_icon": "Icono actual",
+  "_reviews_provider_custom": "Fuente propia",
   "_reviews_provider_tab_data": "Datos",
   "_reviews_provider_tab_icon": "Icono",
   "_reviews_tab_integrations": "Integraciones",
