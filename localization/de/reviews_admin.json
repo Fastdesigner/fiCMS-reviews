@@ -37,6 +37,7 @@
   "_reviews_integration_delete": "Integration löschen",
   "_reviews_integration_active": "Integration aktiv",
   "_reviews_integration_label": "Bezeichnung",
+  "_reviews_integration_external_provider": "Externer Provider",
   "_reviews_integration_provider": "Provider",
   "_reviews_integration_account_ref": "OAuth-Konto",
   "_reviews_integration_oauth_account": "Integration wählen",

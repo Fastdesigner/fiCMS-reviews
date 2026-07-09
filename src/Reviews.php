@@ -297,20 +297,31 @@ class FiCMSReviews {
 
 	public function saveIntegrationFromPost($id, $post) {
 		$original = $this->validIntegrationId($id) ? trim((string) $id) : '';
-		$oauth = $this->oauthIntegrationFromValue($post['integration_oauth_account'] ?? '');
-		$provider = $oauth['provider'] ?? ($this->provider($post['integration_provider'] ?? '') ? trim((string) $post['integration_provider']) : $this->defaultProvider());
+		$manual = isset($post['integration_external_provider']) && in_array(strtolower(trim((string) $post['integration_external_provider'])),['','0','false','off','no'],true);
+		$oauth = $manual ? [] : $this->oauthIntegrationFromValue($post['integration_oauth_account'] ?? '');
+		if ($manual) {
+			$provider = $this->validProvider($post['integration_provider'] ?? '') ? trim((string) $post['integration_provider']) : '';
+			if ($provider == '' || $this->provider($provider)) {
+				$provider = iconv('UTF-8','ASCII//TRANSLIT//IGNORE',strtolower(trim((string) ($post['integration_label'] ?? ''))));
+				$provider = trim((string) preg_replace('/[^a-z0-9]+/','_',(string) $provider),'_');
+				if ($provider == '' || $this->provider($provider)) $provider = 'source';
+			}
+		} else {
+			$provider = $oauth['provider'] ?? ($this->provider($post['integration_provider'] ?? '') ? trim((string) $post['integration_provider']) : $this->defaultProvider());
+		}
 		$saveId = $this->validIntegrationId($post['integration_id'] ?? '') ? trim((string) $post['integration_id']) : $original;
 		if ($saveId == '' || $saveId == 'new') $saveId = $this->createIntegrationId($provider);
+		if ($manual && ($this->provider($provider) || $provider == 'source')) $provider = $saveId;
 		$existing = $original != '' && $original != 'new' ? $this->integration($original) : $this->blankIntegration($saveId);
 		$integration = array_merge($existing,[
 			'id'=>$saveId,
 			'label'=>trim((string) ($post['integration_label'] ?? '')) != '' ? trim((string) ($post['integration_label'] ?? '')) : ucfirst($provider),
 			'provider'=>$provider,
-			'active'=>($original == '' || $original == 'new') && !isset($post['integration_active']) ? 1 : (!empty($post['integration_active']) ? 1 : 0),
-			'account_ref'=>$oauth['account_ref'] ?? (trim((string) ($post['integration_account_ref'] ?? ($existing['account_ref'] ?? 'default'))) ?: 'default')
+			'active'=>($original == '' || $original == 'new') && !isset($post['integration_active']) ? 1 : (!empty($post['integration_active']) && !in_array(strtolower(trim((string) $post['integration_active'])),['0','false','off','no'],true) ? 1 : 0),
+			'account_ref'=>$manual ? '' : ($oauth['account_ref'] ?? (trim((string) ($post['integration_account_ref'] ?? ($existing['account_ref'] ?? 'default'))) ?: 'default'))
 		]);
-		$this->saveProviderIconFromPost($provider,$post);
-		$integration = $this->provider($provider)->saveIntegration($integration,$post,$existing);
+		if (!$manual) $this->saveProviderIconFromPost($provider,$post);
+		if ($this->provider($provider)) $integration = $this->provider($provider)->saveIntegration($integration,$post,$existing);
 		foreach ($this->integrations['integrations'] as $key => $entry) {
 			if ($entry['id'] != $original && $entry['id'] != $saveId) continue;
 			array_splice($this->integrations['integrations'],$key,1);
