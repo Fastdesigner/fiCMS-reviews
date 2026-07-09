@@ -22,6 +22,8 @@ class FiCMSReviewsNormalizer {
 		$entry['text'] = $this->text($entry['text'] ?? []);
 		$entry['rating'] = max(1,min(5,intval($entry['rating'] ?? 5)));
 		$entry['date'] = intval($entry['date'] ?? 0);
+		$entry['created'] = intval($entry['created'] ?? 0);
+		$entry['updated'] = intval($entry['updated'] ?? 0);
 		$entry['published'] = !empty($entry['published']) ? 1 : 0;
 		$entry['featured'] = !empty($entry['featured']) ? 1 : 0;
 		$entry['provider'] = trim((string) ($entry['provider'] ?? 'local'));

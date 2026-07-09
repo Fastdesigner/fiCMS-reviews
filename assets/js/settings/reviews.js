@@ -36,6 +36,11 @@ function reviews__provider_change(obj) {
 	return true;
 }
 
+function reviews__provider_toggle(obj) {
+	setTimeout(() => reviews__provider_change(obj),0);
+	return false;
+}
+
 function reviews__open_integrations(event) {
 	event.preventDefault();
 	event.stopPropagation();
