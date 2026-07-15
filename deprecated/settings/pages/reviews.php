@@ -18,7 +18,7 @@ $reviews = [
 	'items'=>[],
 	'select'=>'',
 	'location_oauth_error'=>0,
-	'instance'=>new FiCMSReviews(dirname(__DIR__,2),$site['default_language'],$site['installed_languages']),
+	'instance'=>new FiCMSReviews(dirname(__DIR__,3),$site['default_language'],$site['installed_languages']),
 	'inputs'=>[
 		'author'=>['required'=>true],
 		'source'=>[],
