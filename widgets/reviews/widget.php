@@ -137,10 +137,12 @@ $reviews['filter'] = [
 ];
 $reviews['rows'] = $reviews['show_items'] == 1 ? $reviews['instance']->widget($reviews['filter'],$_SESSION['language']) : [];
 $reviews['summary_rows'] = $reviews['summary_mode'] != 'none' ? $reviews['instance']->summaryRows($reviews['filter'],$_SESSION['language']) : [];
+$reviews['providers'] = $reviews['instance']->providers();
 
 foreach ($reviews['rows'] as $reviews['row']) {
 	$reviews['rating'] = max(1,min(5,intval($reviews['row']['rating'] ?? 0)));
 	$reviews['provider_logo'] = $reviews['instance']->getProviderLogo($reviews['row']['provider'] ?? '');
+	$reviews['provider_label'] = $reviews['providers'][$reviews['row']['provider'] ?? '']['name'] ?? ucfirst(trim((string) ($reviews['row']['provider'] ?? 'local')));
 	$reviews['item'] = [
 		'id'=>htmlspecialchars(trim((string) ($reviews['row']['id'] ?? '')),ENT_QUOTES,'UTF-8'),
 		'author'=>htmlspecialchars(trim((string) ($reviews['row']['author'] ?? '')),ENT_QUOTES,'UTF-8'),
@@ -155,6 +157,7 @@ foreach ($reviews['rows'] as $reviews['row']) {
 		'datetime'=>date('Y-m-d',intval($reviews['row']['date'] ?? $_SERVER['now'])),
 		'featured'=>intval($reviews['row']['featured'] ?? 0),
 		'provider'=>htmlspecialchars(trim((string) ($reviews['row']['provider'] ?? 'local')),ENT_QUOTES,'UTF-8'),
+		'provider_alt'=>htmlspecialchars(language__get_parsed($_SESSION['language'],'_reviews_provider_alt',['provider'=>$reviews['provider_label']]),ENT_QUOTES,'UTF-8'),
 		'provider_logo'=>htmlspecialchars($reviews['provider_logo'],ENT_QUOTES,'UTF-8'),
 		'external_url'=>htmlspecialchars(trim((string) ($reviews['row']['external_url'] ?? '')),ENT_QUOTES,'UTF-8'),
 		'has_author'=>trim((string) ($reviews['row']['author'] ?? '')) !== '' ? 1 : 0,
