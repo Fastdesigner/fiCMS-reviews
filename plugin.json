@@ -4,7 +4,7 @@
   "type": "thirdparty",
   "system": false,
   "description": "Adds admin-managed customer reviews and a frontend reviews widget.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "dependencies": {
     "google": {
       "owner": "Fastdesigner",

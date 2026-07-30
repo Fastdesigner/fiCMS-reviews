@@ -2,16 +2,18 @@
 
 if (!$site['onsite']) return false;
 
-if ($mcp['mode'] === 'capabilities') return ['tool'=>'create','type'=>'reviews','text'=>'use create("reviews", {author, rating, text, source?, provider?, external_url?, lid?, published?, featured?}) to create a local review as admin. Visitor chat submissions use send("reviews", data).'];
-if ($mcp['mode'] === 'schema') return [];
-if (($mcp['scope'] ?? 'user') !== 'admin') return ['error'=>'admin scope required.'];
+if ($context->mode === 'describe') return [
+	'purpose'=>'Creates a local customer review as admin. Visitor chat submissions use lead("reviews", data).',
+	'args'=>['data'=>'rating:1-5 and text are required. author, source, provider, external_url, lid, published and featured are optional.'],
+	'scope'=>['admin']
+];
 
 require_once dirname(__DIR__,2).'/src/Reviews.php';
 
 $reviewsMcp = [
 	'instance'=>new FiCMSReviews(dirname(__DIR__,2),$site['default_language'],$site['installed_languages']),
-	'data'=>is_array($create['data'] ?? null) ? $create['data'] : [],
-	'language'=>function_exists('mcp__task_language') ? mcp__task_language($mcp['task'] ?? []) : ''
+	'data'=>is_array($context->args['data'] ?? null) ? $context->args['data'] : [],
+	'language'=>\mcp\Util::language($context->task)
 ];
 if ($reviewsMcp['language'] === '') $reviewsMcp['language'] = $_SESSION['language'] ?? ($site['default_language'] ?? 'de');
 if (!isset($reviewsMcp['data']['rating']) || intval($reviewsMcp['data']['rating']) < 1 || intval($reviewsMcp['data']['rating']) > 5) return ['error'=>'rating must be an integer from 1 to 5.'];

@@ -2,15 +2,20 @@
 
 if (!$site['onsite']) return false;
 
-if ($mcp['mode'] === 'capabilities') return ['tool'=>'send','type'=>'reviews','text'=>'use send("reviews", {author?, rating, text, source?}) when a visitor wants to leave a local review in chat. It is saved unpublished for moderation.'];
-if ($mcp['mode'] === 'schema') return [];
+if ($context->mode === 'describe') return [
+	'purpose'=>'Receives a customer review from the visitor and stores it unpublished for moderation.',
+	'args'=>['data'=>'rating:1-5 and text are required. author and source are optional.'],
+	'scope'=>['user','admin'],
+	'covers_forms'=>['review','bewertung'],
+	'lead'=>\mcp\Descriptors::lead('reviews','','reviews',63,'review')
+];
 
 require_once dirname(__DIR__,2).'/src/Reviews.php';
 
 $reviewsMcp = [
 	'instance'=>new FiCMSReviews(dirname(__DIR__,2),$site['default_language'],$site['installed_languages']),
-	'data'=>is_array($send['data'] ?? null) ? $send['data'] : [],
-	'language'=>function_exists('mcp__task_language') ? mcp__task_language($mcp['task'] ?? []) : ''
+	'data'=>is_array($context->args['data'] ?? null) ? $context->args['data'] : [],
+	'language'=>\mcp\Util::language($context->task)
 ];
 if ($reviewsMcp['language'] === '') $reviewsMcp['language'] = $_SESSION['language'] ?? ($site['default_language'] ?? 'de');
 if (!isset($reviewsMcp['data']['rating']) || intval($reviewsMcp['data']['rating']) < 1 || intval($reviewsMcp['data']['rating']) > 5) return ['error'=>'rating must be an integer from 1 to 5.'];
@@ -23,7 +28,7 @@ $reviewsMcp['post'] = [
 	'text'=>[$reviewsMcp['language']=>trim((string) $reviewsMcp['data']['text'])],
 	'lid'=>[$reviewsMcp['language']],
 	'date'=>intval($_SERVER['now'] ?? time()),
-	'published'=>($mcp['scope'] ?? 'user') === 'admin' && isset($reviewsMcp['data']['published']) ? intval($reviewsMcp['data']['published']) : 0,
+	'published'=>$context->scope === 'admin' && isset($reviewsMcp['data']['published']) ? intval($reviewsMcp['data']['published']) : 0,
 	'featured'=>0
 ];
 $reviewsMcp['result'] = $reviewsMcp['instance']->saveFromPost('new',$reviewsMcp['post']);
