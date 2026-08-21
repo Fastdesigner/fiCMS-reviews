@@ -11,14 +11,14 @@
       "repo": "google",
       "branch": "main",
       "installLocation": "PLUGINPATH/google",
-      "required": true
+      "required": false
     },
     "meta": {
       "owner": "Fastdesigner",
       "repo": "meta",
       "branch": "main",
       "installLocation": "PLUGINPATH/meta",
-      "required": true
+      "required": false
     }
   }
 }

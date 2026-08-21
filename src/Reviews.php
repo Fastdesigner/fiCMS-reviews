@@ -1,7 +1,6 @@
 <?php
 
 require_once __DIR__.'/Reviews/Normalizer.php';
-require_once __DIR__.'/Reviews/JsonStorage.php';
 require_once __DIR__.'/Reviews/Rows.php';
 require_once __DIR__.'/Providers/Provider.php';
 foreach (glob(__DIR__.'/Providers/*Provider.php') ?: [] as $file) if (basename($file) != 'Provider.php') require_once $file;
@@ -427,11 +426,7 @@ class FiCMSReviews {
 	}
 
 	private function load() {
-		$data = ['reviews'=>[],'updated'=>0,'ratings'=>$this->emptyRatings(),'provider_refresh'=>[]];
-		if (is_file($this->dataFile)) {
-			$loaded = $this->decode(file_get_contents($this->dataFile));
-			if (is_array($loaded)) $data = array_merge($data,$loaded);
-		}
+		$data = array_merge(['reviews'=>[],'updated'=>0,'ratings'=>$this->emptyRatings(),'provider_refresh'=>[]],\ficms\Files::readJson($this->dataFile));
 		if (!isset($data['reviews']) || !is_array($data['reviews'])) $data['reviews'] = [];
 		foreach ($data['reviews'] as $id => $entry) $data['reviews'][$id] = $this->normalizeEntry($id,$entry);
 		if (!is_array($data['provider_refresh'] ?? null)) $data['provider_refresh'] = [];
@@ -440,11 +435,7 @@ class FiCMSReviews {
 	}
 
 	private function loadIntegrations() {
-		$data = ['integrations'=>[],'updated'=>0];
-		if (is_file($this->integrationsFile)) {
-			$loaded = $this->decode(file_get_contents($this->integrationsFile));
-			if (is_array($loaded)) $data = array_replace_recursive($data,$loaded);
-		}
+		$data = array_replace_recursive(['integrations'=>[],'updated'=>0],\ficms\Files::readJson($this->integrationsFile));
 		if (isset($data['providers']['google']) && is_array($data['providers']['google'])) $data['integrations'][] = $this->legacyGoogleIntegration($data['providers']['google']);
 		unset($data['providers']);
 		if (!is_array($data['integrations'] ?? null)) $data['integrations'] = [];
@@ -453,11 +444,7 @@ class FiCMSReviews {
 	}
 
 	private function loadProviders() {
-		$data = ['providers'=>[],'updated'=>0];
-		if (is_file($this->providersFile)) {
-			$loaded = $this->decode(file_get_contents($this->providersFile));
-			if (is_array($loaded)) $data = array_replace_recursive($data,$loaded);
-		}
+		$data = array_replace_recursive(['providers'=>[],'updated'=>0],\ficms\Files::readJson($this->providersFile));
 		if (!is_array($data['providers'] ?? null)) $data['providers'] = [];
 		foreach ($data['providers'] as $id => $provider) {
 			$provider = $this->normalizeProvider(is_string($id) ? $id : '',$provider);
@@ -470,7 +457,7 @@ class FiCMSReviews {
 
 	public function write() {
 		$this->data['ratings'] = $this->aggregateRatings($this->data['reviews']);
-		return FiCMSReviewsJsonStorage::write($this->dataFile,$this->data);
+		return \ficms\Files::writeJson($this->dataFile,$this->data,false,true);
 	}
 
 	public function touchData() {
@@ -478,11 +465,11 @@ class FiCMSReviews {
 	}
 
 	private function writeIntegrations() {
-		return FiCMSReviewsJsonStorage::write($this->integrationsFile,$this->integrations);
+		return \ficms\Files::writeJson($this->integrationsFile,$this->integrations,false,true);
 	}
 
 	private function writeProviders() {
-		return FiCMSReviewsJsonStorage::write($this->providersFile,$this->providers);
+		return \ficms\Files::writeJson($this->providersFile,$this->providers,false,true);
 	}
 
 	private function normalizeEntry($id, $entry) {
@@ -725,13 +712,12 @@ class FiCMSReviews {
 
 	private function timer($name) {
 		$file = defined('CACHEPATH') ? CACHEPATH.'/timers/.'.$name : '';
-		return $file != '' && is_file($file) ? intval(file_get_contents($file)) : 0;
+		return ($file != '') ? intval(\ficms\Files::read($file)) : 0;
 	}
 
 	public function deleteTimer($name) {
 		$file = defined('CACHEPATH') ? CACHEPATH.'/timers/.'.$name : '';
-		if ($file == '' || !is_file($file)) return false;
-		return unlink($file);
+		return ($file != '') ? \ficms\Files::delete($file,false) : false;
 	}
 
 	private function validProvider($provider) {
