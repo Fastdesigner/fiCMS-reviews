@@ -63,7 +63,7 @@ class FiCMSReviewsTripadvisorProvider extends FiCMSReviewsProvider {
 			$result['result'] = true;
 			return $result;
 		}
-		if (!$force && function_exists('helper__system_runtime') && !helper__system_runtime('reviews_sync_'.$integration['id'],24,false,'hours')) {
+		if (!$force && !\ficms\Runtime::check('reviews_sync_'.$integration['id'],24,false,'hours')) {
 			$result['skipped'] = 1;
 			$result['result'] = true;
 			return $result;
