@@ -141,7 +141,7 @@ class FiCMSReviewsGoogleProvider extends FiCMSReviewsProvider {
 			$this->reviews->deleteTimer('reviews_sync_'.$integration['id']);
 			$force = true;
 		}
-		if (!$force && function_exists('helper__system_runtime') && !helper__system_runtime('reviews_sync_'.$integration['id'],24,false,'hours')) {
+		if (!$force && !\ficms\Runtime::check('reviews_sync_'.$integration['id'],24,false,'hours')) {
 			$result['skipped'] = 1;
 			$result['result'] = true;
 			return $result;

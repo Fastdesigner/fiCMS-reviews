@@ -5,6 +5,10 @@
   "system": false,
   "description": "Adds admin-managed customer reviews and a frontend reviews widget.",
   "version": "1.0.1",
+  "requires": [
+    "ficms\\Runtime::check",
+    "ficms\\Images::selection"
+  ],
   "dependencies": {
     "google": {
       "owner": "Fastdesigner",
