@@ -4,9 +4,14 @@
 		###summary###
 	</div>
 	[/if]
-	[if '###render_items###'=='1']
+	[if '###render_media_slider###'=='0' && '###render_items###'=='1']
 	<div class="reviews__items reviews__###layout###">
 		###items###
+	</div>
+	[/if]
+	[if '###render_media_slider###'=='1']
+	<div class="reviews__items reviews__slider media__wrapper" data-reviews-default-slider>
+		<div data-media-items data-mediatype="slider" data-blendmode="ltr" data-controls="0" data-timer="0" data-loop="0" data-prevlabel="[lang]_ui_slider_prev[/lang]" data-nextlabel="[lang]_ui_slider_next[/lang]">###slider###</div>
 	</div>
 	[/if]
 </div>

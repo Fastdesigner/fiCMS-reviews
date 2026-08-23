@@ -34,6 +34,7 @@ $reviews = [
 		'slider'=>'',
 		'summary'=>'',
 		'render_items'=>0,
+		'render_media_slider'=>0,
 		'render_list'=>0,
 		'render_slider'=>0,
 		'render_summary'=>0
@@ -243,6 +244,7 @@ if (count($reviews['rows']) > 0 || count($reviews['summary_rows']) > 0) {
 		'summary'=>implode('',$reviews['summary_items']),
 		'render_summary'=>count($reviews['summary_items']) > 0 ? 1 : 0,
 		'render_items'=>$reviews['show_items'] == 1 && count($reviews['items']) > 0 ? 1 : 0,
+		'render_media_slider'=>$reviews['show_items'] == 1 && count($reviews['items']) > 0 && $reviews['selected'] == 'slider' && preg_match('~\sdata-media-item(?:\s|>)~i',$reviews['structure']['slider']) === 1 ? 1 : 0,
 		'render_'.$reviews['selected']=>$reviews['show_items'] == 1 && count($reviews['items']) > 0 ? 1 : 0
 	]);
 	$reviews['replace']['items'] = implode('',$reviews['items']);

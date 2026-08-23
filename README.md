@@ -50,6 +50,12 @@ Widget display options:
 - `show_source`
 - `show_date`
 
+The default `slider` layout uses the unified fiCMS media controller with native scroll snap,
+localized previous/next controls, and `data-loop="0"` end stops. Designs can skin the
+`.reviews__slider.media__wrapper` structure without shipping their own slider runtime. The
+plugin-owned default exposes `--system-reviews-slide-width` for card width and maps spacing and
+radius to the existing `--space-lg` and `--radius` design tokens.
+
 ## Markup
 
 The default widget frame is in `widgets/reviews/frame.html`. Repeated item markup lives in `widgets/reviews/blocks/*.html`; block partials must not contain `[repeat=...]`.
@@ -62,3 +68,10 @@ Designs can override it with:
 - `designs/<design>/widgets/reviews/blocks/<layout>.html`
 
 The singular `review` path is checked first for design overrides. The plugin default remains `widgets/reviews/frame.html`.
+
+Slider item overrides keep `data-media-item` on their root element. A structural frame override
+that replaces the default slider wrapper must preserve the direct `.media__wrapper >
+[data-media-items] > [data-media-item]` ownership chain.
+
+For compatibility, a design that overrides only `blocks/slider.html` without the marker keeps the
+previous generic item container until that override is migrated.
