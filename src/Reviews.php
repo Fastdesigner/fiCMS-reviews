@@ -200,7 +200,7 @@ class FiCMSReviews {
 	public function providerIconJson($provider = '') {
 		$provider = $this->validProvider($provider) ? trim((string) $provider) : '';
 		$mjs = $provider != '' && isset($this->providers['providers'][$provider]) ? $this->providers['providers'][$provider]['mjs'] : [];
-		return \ficms\Images::selection($mjs) ?: false;
+		return \ficms\Media::selection($mjs) ?: false;
 	}
 
 	public function providerDisplayText($provider, $text, $language) {
