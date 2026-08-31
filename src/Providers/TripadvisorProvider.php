@@ -49,7 +49,7 @@ class FiCMSReviewsTripadvisorProvider extends FiCMSReviewsProvider {
 	public function status($integration) {
 		$integration = $this->reviews->normalizeIntegration($integration);
 		$integration['connected'] = trim((string) ($integration['config']['api_key'] ?? '')) != '' ? 1 : 0;
-		$integration['provider_available'] = function_exists('curl__request') || function_exists('curl_init') ? 1 : 0;
+		$integration['provider_available'] = class_exists('\ficms\Http') ? 1 : 0;
 		$integration['oauth_available'] = 1;
 		$integration['ready'] = $integration['connected'] == 1 && trim((string) ($integration['target']['location_name'] ?? '')) != '' ? 1 : 0;
 		return $integration;
@@ -116,27 +116,11 @@ class FiCMSReviewsTripadvisorProvider extends FiCMSReviewsProvider {
 			'Accept: application/json',
 			'X-API-KEY: '.trim((string) ($integration['config']['api_key'] ?? ''))
 		];
-		if (function_exists('curl__request')) $response = curl__request($url,$headers,[],'','',null,'GET',30);
-		else $response = $this->curl($url,$headers);
+		$response = \ficms\Http::request($url,['headers'=>$headers,'method'=>'GET','timeout'=>30]);
 		if (!is_array($response)) return ['error'=>'tripadvisor_curl_unavailable'];
 		if (intval($response['code'] ?? 0) < 200 || intval($response['code'] ?? 0) >= 300) return ['error'=>$this->error($response)];
 		$body = json_decode((string) ($response['body'] ?? ''),true);
 		return is_array($body) ? $body : ['error'=>'tripadvisor_invalid_response'];
-	}
-
-	private function curl($url, $headers) {
-		if (!function_exists('curl_init')) return false;
-		$curl = curl_init($url);
-		curl_setopt_array($curl,[
-			CURLOPT_RETURNTRANSFER=>true,
-			CURLOPT_HTTPHEADER=>$headers,
-			CURLOPT_TIMEOUT=>30,
-			CURLOPT_CUSTOMREQUEST=>'GET'
-		]);
-		$body = curl_exec($curl);
-		$result = ['body'=>$body !== false ? $body : '', 'code'=>curl_getinfo($curl,CURLINFO_HTTP_CODE), 'error'=>curl_error($curl)];
-		curl_close($curl);
-		return $result;
 	}
 
 	private function importReview($review, $integration, $language) {
