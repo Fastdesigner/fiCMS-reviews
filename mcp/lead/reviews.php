@@ -6,6 +6,7 @@ if ($context->mode === 'describe') return [
 	'purpose'=>'Receives a customer review from the visitor and stores it unpublished for moderation.',
 	'args'=>['data'=>'rating:1-5 and text are required. author and source are optional.'],
 	'scope'=>['user','admin'],
+	'anonymous'=>true,
 	'covers_forms'=>['review','bewertung'],
 	'lead'=>\mcp\Descriptors::lead('reviews','','reviews',63,'review')
 ];
