@@ -18,7 +18,7 @@ function reviews__provider_change(obj) {
 	let elem = (obj instanceof Event) ? obj.target : obj;
 	let form = reviews__form(elem);
 	if (!form) return false;
-	let processed = forms__process(elem,false,false);
+	let processed = fiCMS.forms.process(elem,false,false);
 	if (!processed) return false;
 	let post = new FormData();
 	for (let key in processed.data) post.append(key,typeof processed.data[key] === 'object' ? JSON.stringify(processed.data[key]) : processed.data[key]);
@@ -44,9 +44,9 @@ function reviews__provider_toggle(obj) {
 function reviews__open_integrations(event) {
 	event.preventDefault();
 	event.stopPropagation();
-	let panel = event.target.closest('[data-panel="true"][data-id]');
+	let panel = event.target.closest('[data-form]');
 	if (panel) panel.removeAttribute('data-form');
-	if (typeof settings__open === 'function') settings__open('general-integrations');
+	settings__open('general-integrations');
 	return false;
 }
 
