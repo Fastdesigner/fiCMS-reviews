@@ -1,10 +1,5 @@
 <?php
 
-if (!file_exists(DESIGNSYSTEM.'/assets/js/admin/sys.js')) {
-	require PLUGINPATH.'/fiCMS-reviews/deprecated/settings/pages/reviews.php';
-	return;
-}
-
 if (!$site['onsite'] || !isset($settings['key']) || $html['is_superviser'] != 1) return;
 
 require_once dirname(__DIR__,2).'/src/Reviews.php';
@@ -165,12 +160,12 @@ foreach ($reviews['admin']['rows'] as $reviews['entry']) {
 	$reviews['listing']->item('review-'.$reviews['entry']['id'],['id'=>$settings['key'].'-'.$reviews['entry']['id'].'-row','label'=>trim((string) $reviews['entry']['author']) ?: language__get($user['language'],'_reviews_no_author'),'subtitle'=>$reviews['provider'].' · '.language__get_parsed($user['language'],'_reviews_rating_option',['rating'=>$reviews['entry']['rating']]).' · '.(!empty($reviews['entry']['published']) ? language__get($user['language'],'_reviews_published') : language__get($user['language'],'_reviews_draft')),'image'=>PAGEPATH.'/media/language/'.(in_array('all',$reviews['entry']['lid'],true) ? 'all' : $reviews['entry']['lid'][0]).'.png','load'=>['id'=>$reviews['entry']['id'],'form'=>true],'toggle'=>['id'=>$reviews['entry']['id'],'name'=>$settings['key'].'-'.$reviews['entry']['id'],'action'=>'ac','checked'=>!empty($reviews['entry']['published'])],'delete'=>(int) ($reviews['entry']['read_only'] ?? 0) == 1 ? null : ['id'=>$reviews['entry']['id']]]);
 }
 if (!$reviews['admin']['rows']) $reviews['listing']->item('empty',['id'=>$settings['key'].'-empty','label'=>language__get($user['language'],'_sort_no_result'),'attrs'=>['data-noresult'=>'true']]);
-$reviews['listing']->item('new',['id'=>$settings['key'].'-new','label'=>language__get($user['language'],'_reviews_new'),'attrs'=>['class'=>'system-next'],'load'=>['id'=>'new','form'=>true]]);
+$reviews['listing']->item('new',['id'=>$settings['key'].'-new','label'=>language__get($user['language'],'_reviews_new'),'load'=>['id'=>'new','form'=>true]]);
 $reviews['integrations'] = $reviews['ui']->tab('integrations',['label'=>language__get($user['language'],'_reviews_tab_integrations')])->listing('list',['id'=>$settings['key'].'-integrations-list','clear'=>true,'sort'=>true]);
 foreach ($reviews['instance']->integrations() as $reviews['integration']) {
 	$reviews['status'] = $reviews['instance']->integrationStatus($reviews['integration']['id']); $reviews['requirements'] = $reviews['instance']->providerRequirements($reviews['integration']['provider'],$reviews['integration']); $reviews['error'] = $reviews['instance']->providerOAuthError($reviews['integration']['provider'],$reviews['status']['last_error'] ?? '');
 	$reviews['subtitle'] = $reviews['status']['ready'] ? trim((string) ($reviews['status']['target']['location_title'] ?? $reviews['status']['target']['location_name'] ?? '')) : (!empty($reviews['requirements']['connect']) && !$reviews['status']['connected'] ? language__get($user['language'],'_reviews_integration_connect_provider') : language__get($user['language'],'_reviews_integration_configure_provider'));
-	$reviews['dropdown'] = $reviews['integrations']->dropdown('integration-'.$reviews['integration']['id'],['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-dropdown','label'=>$reviews['integration']['label'],'subtitle'=>$reviews['subtitle'],'image'=>$reviews['instance']->getProviderLogo($reviews['integration']['provider']),'notify'=>$reviews['error'] ? 'error' : (!$reviews['status']['ready'] ? 'warning' : null),'attrs'=>['class'=>'system-next']]);
+	$reviews['dropdown'] = $reviews['integrations']->dropdown('integration-'.$reviews['integration']['id'],['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-dropdown','label'=>$reviews['integration']['label'],'subtitle'=>$reviews['subtitle'],'image'=>$reviews['instance']->getProviderLogo($reviews['integration']['provider']),'notify'=>$reviews['error'] ? 'error' : (!$reviews['status']['ready'] ? 'warning' : null)]);
 	$reviews['dropdown']->item('edit',['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-edit','label'=>language__get($user['language'],'_reviews_integration_edit_link'),'load'=>['id'=>'integration-'.$reviews['integration']['id'],'form'=>true]]);
 	if (!empty($reviews['requirements']['connect']) && (!$reviews['status']['connected'] || $reviews['error'])) $reviews['dropdown']->button('connect',['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-connect','label'=>language__get($user['language'],'_reviews_integration_manage_oauth'),'call'=>'reviews__open_integrations']);
 	$reviews['dropdown']->item('sync-info',['id'=>$settings['key'].'-'.$reviews['integration']['id'].'-sync-info','label'=>language__get($user['language'],'_reviews_integration_last_sync'),'subtitle'=>$reviews['status']['ready'] && $reviews['status']['last_sync'] > 0 ? format__date_relative($reviews['status']['last_sync'],'relative',$user['language'],true) : language__get($user['language'],'_never'),'actions'=>['icons'=>['sync'=>['systemicon'=>'refresh','action'=>'sync_integration','id'=>$reviews['integration']['id'],'title'=>language__get($user['language'],'_reviews_integration_sync')]]]]);
@@ -182,7 +177,7 @@ foreach ($reviews['instance']->providerSettings() as $reviews['provider']) if (e
 	$reviews['provider_node']->item('edit',['id'=>$settings['key'].'-provider-'.$reviews['provider']['id'].'-edit','label'=>language__get($user['language'],'_reviews_integration_edit_link'),'load'=>['id'=>'provider-'.$reviews['provider']['id'],'form'=>true]]);
 	$reviews['provider_node']->button('delete',['id'=>$settings['key'].'-provider-'.$reviews['provider']['id'].'-delete','label'=>language__get($user['language'],'_reviews_provider_delete'),'action'=>'delete_provider','aid'=>$reviews['provider']['id'],'confirm'=>language__get($user['language'],'_ui_confirm_delete')]);
 }
-$reviews['integrations']->item('new',['id'=>$settings['key'].'-integration-new','label'=>language__get($user['language'],'_reviews_integration_new'),'attrs'=>['class'=>'system-next'],'load'=>['id'=>'integration-new','form'=>true]]);
+$reviews['integrations']->item('new',['id'=>$settings['key'].'-integration-new','label'=>language__get($user['language'],'_reviews_integration_new'),'load'=>['id'=>'integration-new','form'=>true]]);
 $reviews['ui']->refresh($_SERVER['now'] + 60);
 $reviews['ui']->emit($settings);
 
