@@ -12,11 +12,7 @@ $reviews = [
 ];
 
 foreach ([1,2,3,4,5] as $reviews['rating']) $reviews['ratings'][] = ['value'=>$reviews['rating'],'name'=>language__get_parsed($user['language'],'_reviews_rating_option',['rating'=>$reviews['rating']])];
-$reviews['filter_ratings'] = array_merge([['name'=>language__get($user['language'],'_sort_all'),'value'=>'']],$reviews['ratings']);
-$reviews['languages'] = [['name'=>language__get($user['language'],'_sort_all'),'value'=>''],['name'=>language__get($user['language'],'_reviews_language_all'),'value'=>'all']];
-foreach ($site['installed_languages'] as $reviews['language']) $reviews['languages'][] = ['name'=>strtoupper($reviews['language']),'value'=>$reviews['language']];
 $reviews['providers'] = $reviews['instance']->providers();
-$reviews['provider_options'] = array_merge([['name'=>language__get($user['language'],'_sort_all'),'value'=>'']],$reviews['providers']);
 
 if (isset($_POST['settings'],$_POST['type']) && $_POST['type'] == $settings['key']) {
 	$reviews['action'] = (string) ($_POST['action'] ?? '');
@@ -147,12 +143,15 @@ if (isset($_SESSION['filter'][$settings['key']]) && is_array($_SESSION['filter']
 $reviews['admin'] = $reviews['instance']->admin($reviews['filter'],$user['language']);
 $reviews['filter'] = $reviews['admin']['filter'];
 $reviews['tab'] = $reviews['ui']->tab('reviews',['label'=>language__get($user['language'],'_reviews_tab_reviews')]);
-$reviews['filter_node'] = $reviews['tab']->filter($settings['key'],['id'=>$settings['key'].'-filter','callback'=>'settings__filter']);
-$reviews['filter_node']->field('page','number',$reviews['filter']['page'],['id'=>$settings['key'].'Filter-page','label'=>language__get($user['language'],'_sort_page'),'attrs'=>['min'=>1,'max'=>$reviews['admin']['pages']],'call'=>'settings__filter']);
-$reviews['filter_node']->field('search','multipicker',$reviews['filter']['search'],['id'=>$settings['key'].'Filter-search','label'=>language__get($user['language'],'_sort_search'),'custom'=>true,'attrs'=>['data-seperator'=>'["enter"]'],'call'=>'settings__filter']);
-$reviews['filter_node']->field('sort','select',$reviews['filter']['sort'],['id'=>$settings['key'].'Filter-sort','label'=>language__get($user['language'],'_sort_by'),'options'=>[['name'=>language__get($user['language'],'_sort_created'),'value'=>'date'],['name'=>language__get($user['language'],'_reviews_filter_sort_featured'),'value'=>'featured'],['name'=>language__get($user['language'],'_reviews_filter_sort_rating'),'value'=>'rating']],'call'=>'settings__filter']);
-$reviews['filter_node']->field('direction','toggle',$reviews['filter']['direction'],['id'=>$settings['key'].'Filter-direction','label'=>false,'attrs'=>['data-state'=>'ASC,DESC'],'call'=>'settings__filter']);
-foreach (['published'=>[['name'=>language__get($user['language'],'_sort_all'),'value'=>''],['name'=>language__get($user['language'],'_option_yes'),'value'=>'1'],['name'=>language__get($user['language'],'_option_no'),'value'=>'0']],'featured'=>[['name'=>language__get($user['language'],'_sort_all'),'value'=>''],['name'=>language__get($user['language'],'_option_yes'),'value'=>'1'],['name'=>language__get($user['language'],'_option_no'),'value'=>'0']],'rating'=>$reviews['filter_ratings'],'lid'=>$reviews['languages'],'provider'=>$reviews['provider_options']] as $reviews['field'] => $reviews['options']) $reviews['filter_node']->field('attributes['.$reviews['field'].']','select',$reviews['filter']['attributes'][$reviews['field']],['id'=>$settings['key'].'Filter-'.$reviews['field'],'label'=>language__get($user['language'],'_reviews_'.$reviews['field']),'options'=>$reviews['options'],'call'=>'settings__filter']);
+$reviews['filter_node'] = $reviews['tab']->filter('filter',['id'=>$settings['key'].'Filter','name'=>$settings['key'],'callback'=>'settings__filter']);
+$reviews['filter_node']->paging($reviews['filter']['page'],$reviews['admin']['pages']);
+$reviews['filter_node']->search($reviews['filter']['search']);
+if (count($site['installed_languages']) > 1) $reviews['filter_node']->switcher('lid',$reviews['filter']['attributes']['lid'] === '' ? 'all' : $reviews['filter']['attributes']['lid'],array_merge(['all'],$site['installed_languages']),['field'=>'attributes[lid]','title'=>language__get($user['language'],'_reviews_lid'),'attrs'=>['data-flag'=>'1','data-flagbase'=>PAGEPATH.'/media/language/']]);
+$reviews['filter_dialog'] = $reviews['filter_node']->advanced();
+$reviews['filter_dialog']->sort($reviews['filter']['sort'],$reviews['filter']['direction'],[['name'=>language__get($user['language'],'_sort_created'),'value'=>'date'],['name'=>language__get($user['language'],'_reviews_filter_sort_featured'),'value'=>'featured'],['name'=>language__get($user['language'],'_reviews_filter_sort_rating'),'value'=>'rating']]);
+$reviews['all'] = ['name'=>language__get($user['language'],'_sort_all'),'value'=>''];
+$reviews['yes_no'] = [$reviews['all'],['name'=>language__get($user['language'],'_option_yes'),'value'=>'1'],['name'=>language__get($user['language'],'_option_no'),'value'=>'0']];
+foreach (['published'=>$reviews['yes_no'],'featured'=>$reviews['yes_no'],'rating'=>array_merge([$reviews['all']],$reviews['ratings']),'provider'=>array_merge([$reviews['all']],$reviews['providers'])] as $reviews['field'] => $reviews['options']) $reviews['filter_dialog']->field('attributes['.$reviews['field'].']','radio',$reviews['filter']['attributes'][$reviews['field']],['id'=>$settings['key'].'Filter-'.$reviews['field'],'label'=>language__get($user['language'],'_reviews_'.$reviews['field']),'options'=>$reviews['options'],'call'=>'settings__filter']);
 $reviews['listing'] = $reviews['tab']->listing('list',['id'=>$settings['key'].'-list','clear'=>true,'sort'=>true]);
 $reviews['definitions'] = $reviews['instance']->providerDefinitions();
 foreach ($reviews['admin']['rows'] as $reviews['entry']) {

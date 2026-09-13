@@ -107,6 +107,7 @@ class FiCMSReviewsRows {
 		$filter['count'] = max(1,intval($filter['count']));
 		$filter['direction'] = strtoupper((string) $filter['direction']) == 'ASC' ? 'ASC' : 'DESC';
 		if (!in_array($filter['sort'],['date','rating','featured'],true)) $filter['sort'] = 'date';
+		if ($filter['attributes']['lid'] === 'all') $filter['attributes']['lid'] = '';
 		return $filter;
 	}
 
@@ -145,10 +146,7 @@ class FiCMSReviewsRows {
 		if ($filter['attributes']['featured'] !== '' && intval($row['featured']) != intval($filter['attributes']['featured'])) return false;
 		if ($filter['attributes']['rating'] !== '' && intval($row['rating']) != intval($filter['attributes']['rating'])) return false;
 		if ($filter['attributes']['provider'] !== '' && $row['provider'] != $filter['attributes']['provider']) return false;
-		if ($filter['attributes']['lid'] !== '') {
-			if ($filter['attributes']['lid'] == 'all' && !in_array('all',$row['lid'],true)) return false;
-			if ($filter['attributes']['lid'] != 'all' && !in_array($filter['attributes']['lid'],$row['lid'],true)) return false;
-		}
+		if ($filter['attributes']['lid'] !== '' && !$this->matchesLanguage($row['lid'],$filter['attributes']['lid'])) return false;
 		return true;
 	}
 
