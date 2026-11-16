@@ -68,15 +68,15 @@ $reviewsReport['average_label'] = $reviewsReport['format']($reviewsReport['avera
 $reviewsReport['list'][] = ['feature'=>'lead','data'=>[
 	'titlekey'=>'_reports_reviews','title'=>'','desckey'=>'_reports_reviews_description','text'=>'','hasassess'=>'1',
 	'assess'=>[
-		['color'=>reports__score_color($reviewsReport['score']),'labelkey'=>'_reports_reviews_average','label'=>'','level'=>$reviewsReport['average_label'].' / 5'],
+		['color'=>\reports\Reports::scoreColor($reviewsReport['score']),'labelkey'=>'_reports_reviews_average','label'=>'','level'=>$reviewsReport['average_label'].' / 5'],
 		['color'=>$reviewsReport['current_count'] > 0 ? '#2e7d32' : '#9e9e9e','labelkey'=>'_reports_reviews_new','label'=>'','level'=>(string) $reviewsReport['current_count']]
 	]
 ]];
 $reviewsReport['list'][] = ['feature'=>'score','data'=>[
 	'titlekey'=>'_reports_reviews_quality','title'=>'','desckey'=>'',
-	'value'=>$reviewsReport['average_label'],'color'=>reports__score_color($reviewsReport['score']),'labelkey'=>'_reports_reviews_average',
+	'value'=>$reviewsReport['average_label'],'color'=>\reports\Reports::scoreColor($reviewsReport['score']),'labelkey'=>'_reports_reviews_average',
 	'delta'=>'',
-	'metric'=>reports__metrics([
+	'metric'=>\reports\Reports::metrics([
 		['key'=>'published','label'=>'_reports_reviews_published','value'=>$reviewsReport['published_count']],
 		['key'=>'current','label'=>'_reports_reviews_new','value'=>$reviewsReport['current_count']],
 		['key'=>'unpublished','label'=>'_reports_reviews_unpublished','value'=>$reviewsReport['unpublished']],

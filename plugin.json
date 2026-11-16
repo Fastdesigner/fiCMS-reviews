@@ -4,12 +4,14 @@
   "type": "thirdparty",
   "system": false,
   "description": "Adds admin-managed customer reviews and a frontend reviews widget.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "requires": [
     "ficms\\Ui\\Node::advanced",
     "ficms\\Http::request",
     "ficms\\Runtime::check",
-    "ficms\\Media::selection"
+    "ficms\\Media::selection",
+    "reports\\Reports::scoreColor",
+    "reports\\Reports::metrics"
   ],
   "dependencies": {
     "google": {
